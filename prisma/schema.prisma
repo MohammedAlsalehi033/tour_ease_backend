@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://admin:new_password@13.201.19.41:5432/tourease_testing2?schema=public"
+}
+
+model User {
+  id            String      @id @unique
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+  mediaUrls     String[]
+  accountStatus String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  roles                  UserRole[]
+  transportationProvider TransportationProvider?
+  accommodationProvider  AccommodationProvider?
+  transportationBookings TransportationBooking[]
+  accommodationBookings  AccommodationBooking[]
+  sentMessages           Message[]               @relation("SenderMessages")
+  receivedMessages       Message[]               @relation("ReceiverMessages")
+  notifications          Notification[]
+  reviews                Review[]                @relation("ReviewerRelation")
+  trips                  Trip[]
+  questions              Question[]
+  comments               Comment[]
+  traveler               Traveler?
+  admin                  Admin?
+
+  @@index([email])
+  @@index([accountStatus])
+}
+
+model Role {
+  id       Int    @id @default(autoincrement())
+  roleName String @unique
+
+  // Relations
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId Int
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model TransportationProvider {
+  providerId        String      @id
+  licenseMmediaUrls String[]
+  vehicleMediaUrls  String[]
+  vehicleType       String
+  seatsAvailable    Int
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user     User                    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  listings TransportationListing[]
+
+  @@index([vehicleType])
+}
+
+model AccommodationProvider {
+  providerId        String      @id
+  accommodationName String
+  address           String
+  contactNumber     String
+  mediaUrls         String[]
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user           User            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  accommodations Accommodation[]
+
+  @@index([accommodationName])
+}
+
+model TransportationListing {
+  id             Int      @id @default(autoincrement())
+  providerId     String
+  startLocation  String
+  endLocation    String
+  departureTime  DateTime
+  pricePerSeat   Decimal  @db.Decimal(10, 2)
+  seatsAvailable Int
+  status         String   @default("active")
+  mediaUrls      String[]
+  createdAt      DateTime @default(now())
+
+  // Relations
+  provider TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  bookings TransportationBooking[]
+  reviews  Review[]                @relation("TransportationListingReviews")
+
+  @@index([providerId])
+  @@index([startLocation, endLocation])
+  @@index([departureTime])
+  @@index([status])
+}
+
+model Accommodation {
+  id          Int      @id @default(autoincrement())
+  providerId  String
+  name        String
+  location    String
+  description String
+  mediaUrls   String[]
+  createdAt   DateTime @default(now())
+
+  // Relations
+  provider AccommodationProvider @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  rooms    Room[]
+  reviews  Review[]              @relation("AccommodationReviews")
+
+  @@index([providerId])
+  @@index([location])
+  @@index([name])
+}
+
+model Room {
+  id              Int      @id @default(autoincrement())
+  accommodationId Int
+  roomType        String
+  pricePerNight   Decimal  @db.Decimal(10, 2)
+  capacity        Int
+  mediaUrls       String[]
+  createdAt       DateTime @default(now())
+
+  accommodation Accommodation          @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  bookings      AccommodationBooking[]
+  reviews       Review[]               @relation("RoomReviews")
+
+  @@index([accommodationId])
+  @@index([roomType])
+  @@index([pricePerNight])
+  @@index([capacity])
+}
+
+model TransportationBooking {
+  id          Int      @id @default(autoincrement())
+  travelerId  String
+  listingId   Int
+  seatsBooked Int
+  luggage     String?
+  status      String   @default("pending")
+  totalPrice  Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  traveler User                  @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  listing  TransportationListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reviews  Review[]              @relation("TransportationBookingReviews")
+
+  @@index([travelerId])
+  @@index([listingId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AccommodationBooking {
+  id           Int      @id @default(autoincrement())
+  travelerId   String
+  roomId       Int
+  checkInDate  DateTime
+  checkOutDate DateTime
+  status       String   @default("pending")
+  totalPrice   Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  traveler User     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  payment  Payment? @relation("AccommodationPayment")
+  reviews  Review[] @relation("AccommodationBookingReviews")
+
+  @@index([travelerId])
+  @@index([roomId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String
+  status        String   @default("pending")
+  transactionId String   @unique
+  createdAt     DateTime @default(now())
+
+
+  accommodationBookingId Int?                  @unique
+  accommodationBooking   AccommodationBooking? @relation("AccommodationPayment", fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+
+
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   String
+  receiverId String
+  content    String
+  sentAt     DateTime @default(now())
+
+  // Relations
+  sender   User @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([sentAt])
+}
+
+model Review {
+  id             Int      @id @default(autoincrement())
+  reviewerId     String
+  reviewableType String
+  rating         Int
+  comment        String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  reviewer User @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  // Polymorphic relationships based on reviewableType
+  transportationListingId Int?
+  transportationListing   TransportationListing? @relation("TransportationListingReviews", fields: [transportationListingId], references: [id], onDelete: Cascade)
+
+  accommodationId Int?
+  accommodation   Accommodation? @relation("AccommodationReviews", fields: [accommodationId], references: [id], onDelete: Cascade)
+
+  roomId Int?
+  room   Room? @relation("RoomReviews", fields: [roomId], references: [id], onDelete: Cascade)
+
+  transportationBookingId Int?
+  transportationBooking   TransportationBooking? @relation("TransportationBookingReviews", fields: [transportationBookingId], references: [id], onDelete: Cascade)
+
+  accommodationBookingId Int?
+  accommodationBooking   AccommodationBooking? @relation("AccommodationBookingReviews", fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+
+  @@index([reviewerId])
+  @@index([reviewableType])
+  @@index([rating])
+}
+
+model Trip {
+  id          Int      @id @default(autoincrement())
+  travelerId  String
+  destination String
+  startDate   DateTime
+  endDate     DateTime
+  budget      Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  traveler   User           @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  activities TripActivity[]
+
+  @@index([travelerId])
+  @@index([destination])
+  @@index([startDate, endDate])
+}
+
+model TripActivity {
+  id           Int      @id @default(autoincrement())
+  tripId       Int
+  activityName String
+  date         DateTime
+  time         DateTime
+  description  String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([date])
+}
+
+model Traveler {
+  travelerId  String      @id
+  preferences String[]
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+}
+
+model Admin {
+  adminId     String      @id
+  permissions String[]
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model Question {
+  id          Int      @id @default(autoincrement())
+  userId      String
+  title       String
+  description String
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  tags        String[]
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([userId])
+  @@index([title])
+  @@index([tags])
+  @@index([createdAt])
+  @@index([upvotes, downvotes])
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  questionId Int
+  content    String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([questionId])
+  @@index([createdAt])
+}

@@ -1,0 +1,16 @@
+project-root/
+├── src/
+│   ├── models/
+│   ├── routes/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── services/
+│   ├── utils/
+│   └── app.js
+├── prisma/
+│   └── schema.prisma
+├── .env
+├── .env.example
+├── .gitignore
+├── package.json
+└── README.md

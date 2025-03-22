@@ -2,13 +2,15 @@
   "name": "tour_ease_backend",
   "version": "1.0.0",
   "description": "Node.js MRC backend with Prisma",
-  "main": "src/app.js",
+  "main": "dist/app.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "build": "tsc",
+    "start": "nodemon dist/app.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "seed": "ts-node seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.9.0",
@@ -16,12 +18,18 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
+    "firebase-admin": "^13.2.0",
     "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "prisma": "^5.9.0"
+    "@faker-js/faker": "^9.6.0",
+    "@types/node": "^22.13.10",
+    "nodemon": "^3.1.9",
+    "prisma": "^5.22.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.2"
   }
 }
