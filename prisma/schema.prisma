@@ -35,6 +35,8 @@ model User {
 
   @@index([email])
   @@index([accountStatus])
+  Vote Vote[]
+  TransportationRequest TransportationRequest[]
 }
 
 model Role {
@@ -65,8 +67,8 @@ model TransportationProvider {
   vehicleType       String
   seatsAvailable    Int
   createdAt         DateTime @default(now())
+  accountStatus String   @default("pending")
 
-  // Relations
   user     User                    @relation(fields: [providerId], references: [id], onDelete: Cascade)
   listings TransportationListing[]
 
@@ -87,6 +89,28 @@ model AccommodationProvider {
 
   @@index([accommodationName])
 }
+
+
+model TransportationRequest {
+  id            Int      @id @default(autoincrement())
+  travelerId    String
+  startLocation String
+  endLocation   String
+  departureTime DateTime
+  seatsNeeded   Int
+  budget        Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+
+  traveler User @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  bookings TransportationBooking[]
+
+  @@index([travelerId])
+  @@index([startLocation, endLocation])
+  @@index([departureTime])
+}
+
+
+
 
 model TransportationListing {
   id             Int      @id @default(autoincrement())
@@ -110,6 +134,41 @@ model TransportationListing {
   @@index([departureTime])
   @@index([status])
 }
+
+
+
+
+model TransportationBooking {
+  id            Int      @id @default(autoincrement())
+  travelerId    String
+  seatsBooked Int
+  luggage       String?
+  status        String   @default("pending")
+  totalPrice    Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+
+  bookingSource String   @default("listing") 
+
+  // Foreign key to TransportationListing (nullable)
+  transportationListingId Int?
+  listing               TransportationListing? @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
+
+  // Foreign key to TransportationRequest (nullable)
+  transportationRequestId Int?
+  request               TransportationRequest? @relation(fields: [transportationRequestId], references: [id], onDelete: Cascade)
+
+  traveler User @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+
+  reviews  Review[] @relation("TransportationBookingReviews")
+
+  @@index([travelerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([transportationListingId])
+  @@index([transportationRequestId])
+}
+
+
 
 model Accommodation {
   id          Int      @id @default(autoincrement())
@@ -149,26 +208,6 @@ model Room {
   @@index([capacity])
 }
 
-model TransportationBooking {
-  id          Int      @id @default(autoincrement())
-  travelerId  String
-  listingId   Int
-  seatsBooked Int
-  luggage     String?
-  status      String   @default("pending")
-  totalPrice  Decimal  @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-
-  // Relations
-  traveler User                  @relation(fields: [travelerId], references: [id], onDelete: Cascade)
-  listing  TransportationListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  reviews  Review[]              @relation("TransportationBookingReviews")
-
-  @@index([travelerId])
-  @@index([listingId])
-  @@index([status])
-  @@index([createdAt])
-}
 
 model AccommodationBooking {
   id           Int      @id @default(autoincrement())
@@ -340,6 +379,7 @@ model Question {
   // Relations
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments Comment[]
+  vote Vote[]
 
   @@index([userId])
   @@index([title])
@@ -355,11 +395,28 @@ model Comment {
   content    String
   createdAt  DateTime @default(now())
 
-  // Relations
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([questionId])
   @@index([createdAt])
+}
+model Vote {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  questionId Int
+  type       VoteType
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId]) 
+  @@index([userId])
+  @@index([questionId])
+}
+
+enum VoteType {
+  UPVOTE
+  DOWNVOTE
 }

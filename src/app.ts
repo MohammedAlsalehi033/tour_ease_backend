@@ -1,23 +1,25 @@
-const express = require('express');
+import express from 'express';
 const cors = require('cors');
-const questionRoutes = require('./routes/questionRoutes');
-const authRoutes = require('./routes/authRoutres');
-
+const questionRoutes = require('./routes/question/questionRoutes');
+const authRoutes = require('./routes/UserRoutres');
+const commentRoutes = require('./routes/question/comment/commentRoutes');
+const transtporationProviderRoutes = require('./routes/user/transportationProviderRoute');
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api', questionRoutes);
 app.use('/api', authRoutes);
+app.use('/api', questionRoutes);
+app.use('/api', commentRoutes);
+app.use('/api', transtporationProviderRoutes);
 
 app.get('/',  (req, res) => {
   res.json({
     
     message: 'Welcome to the Q&A API!'});
 });
-
 
 app.post('/verifyJWT', async (req, res) => {
   const idToken = req.headers.authorization?.split('Bearer ')[1];
@@ -55,4 +57,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;

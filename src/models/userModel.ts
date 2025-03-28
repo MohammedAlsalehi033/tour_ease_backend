@@ -1,8 +1,9 @@
 import { PrismaClient, User } from "@prisma/client";
 import { prisma } from "../utils/prismaClient";
 import { UserRole } from "../Types/myEnum";
+import { FileUploaderForS3 } from "../utils/FileUploader";
 
-export default class AuthModel {
+export default class UserModel {
 
 
 
@@ -159,6 +160,43 @@ export default class AuthModel {
       });
     } catch (error) {
       console.error("Error updating user role:", error);
+      throw error;
+    }
+  }
+
+
+  async updateProfilePicture(
+    userId: string,
+    file: any
+  ): Promise<User> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+  
+      if (!user) {
+        throw new Error('User not found');
+      }
+  
+      const fileUploader = new FileUploaderForS3();
+      
+      
+      const uploadResult = await fileUploader.uploadFile(file, "profilePicture", user.username);
+      const updatedMediaUrls = [uploadResult.key];
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          mediaUrls: updatedMediaUrls,
+        },
+      });
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating profile picture:', error);
       throw error;
     }
   }
