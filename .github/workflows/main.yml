@@ -67,8 +67,7 @@ jobs:
           echo "Connected successfully and listed files."
           pwd
           echo "--- Remote Execution End ---"
-EOF # Ensure this EOF is aligned with 'echo', 'chmod', 'ssh' and has no leading/trailing spaces
-
+          EOF
           # This command runs locally AFTER ssh completes or fails
           echo "SSH command finished. Check logs above for connection details and remote output."
           echo "--- Deployment Step Finished ---"
