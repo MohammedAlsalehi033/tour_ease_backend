@@ -38,7 +38,6 @@ jobs:
           
           echo "📦 Installing dependencies..."
           npm install --production
-          npm install -g typescript  # Ensure TypeScript is available
           
           echo "🏗️ Building application..."
           # Continue even if build fails (but log the error)
