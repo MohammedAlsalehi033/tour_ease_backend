@@ -1,6 +1,4 @@
-# .github/workflows/test-ssh-connection.yml
-
-name: Test EC2 SSH Connection
+name: Node.js CI/CD Pipeline
 
 # Controls when the workflow will run
 on:
@@ -15,59 +13,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      
+    
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Install dependencies
         run: |
           echo "Installing dependencies..."
-          # Add actual dependency installation here if needed
+          
 
-      - name: Deploy to EC2 with Debug Info
+
+      - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_KEY: ${{ secrets.EC2_KEY }}
         run: |
-          echo "--- Starting Deployment Step ---"
           echo "Deploying to EC2..."
-
-          # --- Print Non-Sensitive Secrets for Verification ---
-          echo "Target Host: $EC2_HOST"
-          echo "Target User: $EC2_USER"
-          # -------------------------------------------------
-
-          # --- SECURITY WARNING ---
-          # DO NOT print the full EC2_KEY secret. Check its presence safely.
-          echo "Checking EC2_KEY Secret:"
-          # Option 1: Print first 30 characters (less risky)
-          echo "EC2_KEY starts with: $(echo "$EC2_KEY" | head -c 30)..."
-          # Option 2: Print MD5 hash (safer - use this to verify if the key content is exactly what you expect)
-          echo -n "$EC2_KEY" | md5sum | awk '{ print "EC2_KEY MD5 Hash: "$1 }'
-          # --- END SECURITY WARNING ---
-
           # Write the private key to a file
-          echo "Writing EC2_KEY to deploy_key.pem"
           echo "$EC2_KEY" > deploy_key.pem
           chmod 600 deploy_key.pem
-
-          # --- Check deploy_key.pem file status (DO NOT 'cat' the file) ---
-          echo "Checking status of deploy_key.pem:"
-          ls -l deploy_key.pem
-          # Verify permissions are -rw------- (600)
-          # --------------------------------------------------------------
-
-          # Connect via SSH and execute commands using a here-document
-          # Added '-v' for verbose SSH debugging output
-          echo "Attempting SSH connection (with verbose output)..."
-          ssh -v -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-          echo "--- Remote Execution Start ---"
+          echo EC2_KEY
+          ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          cd /home/ubuntu/my-node-app/my-node-app/my-node-app
           ls -l
-          # Add other remote commands here, each on a new line
-          echo "Connected successfully and listed files."
-          pwd
-          echo "--- Remote Execution End ---"
-          EOF
-          # This command runs locally AFTER ssh completes or fails
-          echo "SSH command finished. Check logs above for connection details and remote output."
-          echo "--- Deployment Step Finished ---"
