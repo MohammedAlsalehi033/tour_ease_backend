@@ -11,43 +11,31 @@ on:
   #   branches: [ main ]
 
 jobs:
-  # Define a single job called "ssh-test"
-  ssh-test:
-    # The type of runner that the job will run on
+  build-and-deploy:
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # 1. Set up the SSH Private Key
-      - name: Setup SSH Key
-        # Use the EC2_KEY secret configured in your repository settings
-        env:
-          EC2_PRIVATE_KEY: ${{ secrets.EC2_KEY }}
-        run: |
-          echo "Setting up SSH key..."
-          mkdir -p ~/.ssh/                     # Create the .ssh directory if it doesn't exist
-          echo "$EC2_PRIVATE_KEY" > ~/.ssh/id_rsa_ec2 # Write the key to a file
-          chmod 600 ~/.ssh/id_rsa_ec2        # Set strict permissions required by SSH
+      
+    
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # 2. Connect to EC2 and run ls -l
-      - name: Connect to EC2 and run ls -l
-        # Use the EC2_USER and EC2_HOST secrets
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          
+
+
+      - name: Deploy to EC2
         env:
-          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_KEY: ${{ secrets.EC2_KEY }}
         run: |
-          echo "Connecting to $EC2_USER@$EC2_HOST..."
-          # -i specifies the private key file
-          # -o StrictHostKeyChecking=no automatically adds the host key to known_hosts (needed for automation)
-          # The command 'ls -l' is executed on the remote server
-          ssh -i ~/.ssh/id_rsa_ec2 \
-              -o StrictHostKeyChecking=no \
-              $EC2_USER@$EC2_HOST \
-              'ls -l' # Command to run on the EC2 instance
-
-      # 3. Clean up the SSH key (optional but good practice)
-      - name: Cleanup SSH Key
-        if: always() # Ensure this step runs even if previous steps fail
-        run: |
-          echo "Removing SSH key..."
-          rm -f ~/.ssh/id_rsa_ec2
+          echo "Deploying to EC2..."
+          # Write the private key to a file
+          echo "$EC2_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          echo EC2_KEY
+          ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          ls -l
