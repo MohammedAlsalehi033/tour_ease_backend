@@ -20,8 +20,12 @@ class QuestionController {
           questions.map(async (question) => {
             if (question.user?.mediaUrls?.length > 0) {
                 const signedUrls = await Promise.all(
-                    question.user.mediaUrls.map(url => 
-                        this.fileUploader.myGetSignedUrl(url)
+
+                    question.user.mediaUrls.map(  (url)=>{
+                      console.log(url)
+                      return this.fileUploader.myGetSignedUrl(url)
+
+                    }
                     )
                 );
                 

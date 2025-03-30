@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://admin:new_password@13.201.19.41:5432/tourease_testing2?schema=public"
+  url      = env("DATABASE_URL")
 }
 
 model User {

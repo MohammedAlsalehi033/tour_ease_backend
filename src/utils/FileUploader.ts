@@ -8,6 +8,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 
+
 export interface FileUploadResult {
   url: string;
   key: string;
@@ -47,6 +48,7 @@ export class FileUploaderForS3 extends FileUploader {
     fileType: string,
     userName: string
   ): Promise<FileUploadResult> {
+    console.log(this.bucket)
     const extension = file.originalname.split(".").pop();
     console.log(file.originalname);
     const key = `uploads/${userName}/${Date.now()}-${fileType}.${extension}`;
