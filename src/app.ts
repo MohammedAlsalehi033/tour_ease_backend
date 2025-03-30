@@ -5,6 +5,8 @@ const authRoutes = require('./routes/userRoutres');
 const commentRoutes = require('./routes/question/comment/commentRoutes');
 const transtporationProviderRoutes = require('./routes/user/transportationProviderRoute');
 const app = express();
+import { PrismaClient } from '@prisma/client'
+
 require('dotenv').config();
 app.use(cors());
 app.use(express.json());
@@ -20,6 +22,10 @@ app.get('/',  (req, res) => {
     
     message: 'Welcome to the Q&A API this is a test for the testing !'});
 });
+
+
+
+
 
 app.post('/verifyJWT', async (req, res) => {
   const idToken = req.headers.authorization?.split('Bearer ')[1];
@@ -54,6 +60,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server runniing on port ${PORT}`);
 });
+
 
