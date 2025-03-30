@@ -1,42 +1,60 @@
 name: Node.js CI/CD Pipeline
 
-# Controls when the workflow will run
 on:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-  # Optionally, trigger on pushes to the main branch
-  # push:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      
-    
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: |
-          echo "Installing dependencies..."
-          
-
 
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_KEY: ${{ secrets.EC2_KEY }}
+          APP_NAME: "tour-ease-backend"  # Match your PM2 app name
+          NODE_ENV: "production"
         run: |
-          echo "Deploying to EC2..."
-          # Write the private key to a file
+          echo "⚡ Starting deployment to EC2..."
+          
+          # Setup SSH key
           echo -e "$EC2_KEY" > deploy_key.pem
           chmod 600 deploy_key.pem
-          echo "----- Key File Content -----"
-          cat deploy_key.pem
-          echo "---------------------------"
-          ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-          cd ./tourEaseBackEnd 
           
+          # Deployment commands
+          ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          set -e  # Exit immediately if any command fails
+          echo "📂 Navigating to project directory..."
+          cd ~/tourEaseBackEnd || { echo "❌ Project directory not found"; exit 1; }
+          
+          echo "🔄 Syncing with GitHub..."
+          gh repo sync --force
+          
+          echo "📦 Installing dependencies..."
+          npm install --production
+          
+          echo "🏗️ Building application..."
+          npm run build
+          
+          echo "🔄 Restarting PM2 process..."
+          if pm2 describe $APP_NAME > /dev/null; then
+            echo "🟢 Restarting existing PM2 process..."
+            pm2 reload $APP_NAME --update-env
+            pm2 save
+          else
+            echo "🟡 No PM2 process found, starting new instance..."
+            pm2 start npm --name "$APP_NAME" -- run start
+            pm2 save
+            pm2 startup  # Only needed once, but harmless to run multiple times
+          fi
+          
+          echo "✅ Deployment complete!"
+          echo "📊 Current PM2 status:"
+          pm2 list
+          EOF
