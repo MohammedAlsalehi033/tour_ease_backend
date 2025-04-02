@@ -121,7 +121,7 @@ model TransportationListing {
   providerId         String
   startLocationText  String
   endLocationText    String
-   startLocationLat  Float?
+  startLocationLat  Float?
   startLocationLng  Float?
   endLocationLat    Float?
   endLocationLng    Float?

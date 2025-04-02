@@ -59,7 +59,7 @@ export default class RequestController {
 
   async findNearbyRequests(req: Request, res: Response) {
     try {
-      const { lat, lng, radiusKm = 30 } = req.query; // Default radius to 30km
+      const { lat, lng, radiusKm = 30 } = req.query; 
 
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
