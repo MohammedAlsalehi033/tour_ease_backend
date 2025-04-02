@@ -7,7 +7,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  extensions = [postgis]
 }
 
 model User {
@@ -95,49 +94,54 @@ model AccommodationProvider {
 
 
 model TransportationRequest {
-  id            Int      @id @default(autoincrement())
-  travelerId    String
-  startLocation String
-  endLocation   String
-  departureTime DateTime
-  seatsNeeded   Int
-  budget        Decimal  @db.Decimal(10, 2)
-  createdAt     DateTime @default(now())
-
-  traveler User @relation(fields: [travelerId], references: [id], onDelete: Cascade)
-  bookings TransportationBooking[]
-
+  id                  Int      @id @default(autoincrement())
+  travelerId          String
+  startLocationText   String
+  endLocationText     String
+  startLocationLat  Float?
+  startLocationLng  Float?
+  endLocationLat    Float?
+  endLocationLng    Float?
+  departureTime       DateTime
+  seatsNeeded         Int
+  budget              Decimal  @db.Decimal(10, 2)
+  createdAt           DateTime @default(now())
+  traveler            User     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  bookings            TransportationBooking[]
+  
   @@index([travelerId])
-  @@index([startLocation, endLocation])
+  @@index([startLocationText, endLocationText])
   @@index([departureTime])
 }
-
 
 
 
 model TransportationListing {
-  id             Int      @id @default(autoincrement())
-  providerId     String
-  startLocation  String
-  endLocation    String
-  departureTime  DateTime
-  pricePerSeat   Decimal  @db.Decimal(10, 2)
-  seatsAvailable Int
-  status         String   @default("active")
-  mediaUrls      String[]
-  createdAt      DateTime @default(now())
-
+  id                 Int      @id @default(autoincrement())
+  providerId         String
+  startLocationText  String
+  endLocationText    String
+   startLocationLat  Float?
+  startLocationLng  Float?
+  endLocationLat    Float?
+  endLocationLng    Float?
+  departureTime      DateTime
+  pricePerSeat       Decimal  @db.Decimal(10, 2)
+  seatsAvailable     Int
+  status             String   @default("active")
+  mediaUrls          String[]
+  createdAt          DateTime @default(now())
+  
   // Relations
-  provider TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
-  bookings TransportationBooking[]
-  reviews  Review[]                @relation("TransportationListingReviews")
-
+  provider           TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  bookings           TransportationBooking[]
+  reviews            Review[]                @relation("TransportationListingReviews")
+  
   @@index([providerId])
-  @@index([startLocation, endLocation])
+  @@index([startLocationText, endLocationText])
   @@index([departureTime])
   @@index([status])
 }
-
 
 
 
