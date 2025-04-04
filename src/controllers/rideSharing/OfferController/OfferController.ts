@@ -1,3 +1,4 @@
+import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
 
