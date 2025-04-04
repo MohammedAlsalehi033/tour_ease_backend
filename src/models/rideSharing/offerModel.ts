@@ -1,4 +1,6 @@
-import { prisma } from "../../utils/prismaClient";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export class PrismaOfferModel {
   // Get all offers with pagination, filtering and sorting
