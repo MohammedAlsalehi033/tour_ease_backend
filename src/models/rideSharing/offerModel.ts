@@ -1,4 +1,4 @@
-import { prisma } from "../../../src/utils/prismaClient";
+import { prisma } from "../../utils/prismaClient";
 
 export class PrismaOfferModel {
   // Get all offers with pagination, filtering and sorting
