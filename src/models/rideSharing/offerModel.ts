@@ -1,10 +1,11 @@
-import { prisma } from '../../utils/prismaClient';
+import { prisma } from "../../utils/prismaClient";
+import { Offer } from "@prisma/client"; 
 
 export class PrismaOfferModel {
   getAllOffers(
     page = 1,
     limit = 10,
-    sort = 'newest',
+    sort = "newest",
     filter: {
       senderId?: string;
       recipientId?: string;
@@ -12,9 +13,9 @@ export class PrismaOfferModel {
       transportationListingId?: number;
       transportationRequestId?: number;
     } = {}
-  ): Promise<any[]> {
+  ): Promise<Offer[]> {
     const skip = (page - 1) * limit;
-    
+
     let orderBy = {};
     switch (sort) {
       case "newest":
@@ -32,7 +33,7 @@ export class PrismaOfferModel {
       default:
         orderBy = { createdAt: "desc" };
     }
-    
+
     return prisma.offer.findMany({
       skip,
       take: limit,
@@ -60,7 +61,7 @@ export class PrismaOfferModel {
   }
 
   // Get a specific offer by ID
-  getOfferById(id: number): Promise<any | null> {
+  getOfferById(id: number): Promise<Offer | null> {
     return prisma.offer.findUnique({
       where: { id },
       include: {
@@ -93,7 +94,7 @@ export class PrismaOfferModel {
     message?: string;
     transportationListingId?: number;
     transportationRequestId?: number;
-  }): Promise<any> {
+  }): Promise<Offer> {
     return prisma.offer.create({
       data: {
         senderId: data.senderId,
@@ -125,7 +126,7 @@ export class PrismaOfferModel {
   }
 
   // Update an offer's status
-  updateOfferStatus(id: number, status: string): Promise<any> {
+  updateOfferStatus(id: number, status: string): Promise<Offer> {
     return prisma.offer.update({
       where: { id },
       data: { status },
@@ -138,9 +139,9 @@ export class PrismaOfferModel {
     page = 1,
     limit = 10,
     status?: string
-  ): Promise<any[]> {
+  ): Promise<Offer[]> {
     const skip = (page - 1) * limit;
-    
+
     return prisma.offer.findMany({
       skip,
       take: limit,
@@ -169,9 +170,9 @@ export class PrismaOfferModel {
     page = 1,
     limit = 10,
     status?: string
-  ): Promise<any[]> {
+  ): Promise<Offer[]> {
     const skip = (page - 1) * limit;
-    
+
     return prisma.offer.findMany({
       skip,
       take: limit,
@@ -200,9 +201,9 @@ export class PrismaOfferModel {
     page = 1,
     limit = 10,
     status?: string
-  ): Promise<any[]> {
+  ): Promise<Offer[]> {
     const skip = (page - 1) * limit;
-    
+
     return prisma.offer.findMany({
       skip,
       take: limit,
@@ -238,7 +239,7 @@ export class PrismaOfferModel {
     status?: string
   ): Promise<any[]> {
     const skip = (page - 1) * limit;
-    
+
     return prisma.offer.findMany({
       skip,
       take: limit,
@@ -267,7 +268,7 @@ export class PrismaOfferModel {
   }
 
   // Accept an offer and create a booking
-  async acceptOffer(offerId: number): Promise<any> {
+  async acceptOffer(offerId: number): Promise<Offer> {
     // First get the offer to access its details
     const offer = await prisma.offer.findUnique({
       where: { id: offerId },
@@ -291,7 +292,9 @@ export class PrismaOfferModel {
       // Create a booking based on the offer
       const booking = await tx.transportationBooking.create({
         data: {
-          travelerId: offer.transportationListingId ? offer.senderId : offer.recipientId,
+          travelerId: offer.transportationListingId
+            ? offer.senderId
+            : offer.recipientId,
           seatsBooked: offer.seatsRequested,
           status: "pending",
           totalPrice,
@@ -323,7 +326,7 @@ export class PrismaOfferModel {
   }
 
   // Reject an offer
-  rejectOffer(offerId: number): Promise<any> {
+  rejectOffer(offerId: number): Promise<Offer> {
     return prisma.offer.update({
       where: { id: offerId },
       data: { status: "rejected" },
@@ -331,37 +334,30 @@ export class PrismaOfferModel {
   }
 
   // Count offers by status for a user
-  countOffersByStatus(userId: string): Promise<any> {
-    return prisma.$transaction([
-      prisma.offer.count({
-        where: {
-          OR: [
-            { senderId: userId },
-            { recipientId: userId },
-          ],
-          status: "pending",
-        },
-      }),
-      prisma.offer.count({
-        where: {
-          OR: [
-            { senderId: userId },
-            { recipientId: userId },
-          ],
-          status: "accepted",
-        },
-      }),
-      prisma.offer.count({
-        where: {
-          OR: [
-            { senderId: userId },
-            { recipientId: userId },
-          ],
-          status: "rejected",
-        },
-      }),
-    ]).then(([pending, accepted, rejected]) => {
-      return { pending, accepted, rejected };
-    });
+  countOffersByStatus(userId: string): Promise<Offer> {
+    return prisma
+      .$transaction([
+        prisma.offer.count({
+          where: {
+            OR: [{ senderId: userId }, { recipientId: userId }],
+            status: "pending",
+          },
+        }),
+        prisma.offer.count({
+          where: {
+            OR: [{ senderId: userId }, { recipientId: userId }],
+            status: "accepted",
+          },
+        }),
+        prisma.offer.count({
+          where: {
+            OR: [{ senderId: userId }, { recipientId: userId }],
+            status: "rejected",
+          },
+        }),
+      ])
+      .then(([pending, accepted, rejected]) => {
+        return { pending, accepted, rejected };
+      });
   }
 }
