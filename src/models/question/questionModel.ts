@@ -1,7 +1,7 @@
 import { BaseModel } from "./questionBaseModel";
 import { Question, PrismaClient } from "@prisma/client";
+import { prisma } from '../../utils/prismaClient';
 
-const prisma = new PrismaClient();
 
 export class PrismaQuestionModel extends BaseModel<any> {
   async getAllItems(
