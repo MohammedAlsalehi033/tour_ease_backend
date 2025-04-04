@@ -5,6 +5,8 @@ const authRoutes = require('./routes/userRoutres');
 const commentRoutes = require('./routes/question/comment/commentRoutes');
 const transtporationProviderRoutes = require('./routes/user/transportationProviderRoute');
 const rideSharingRequestRoutes = require('./routes/rideSharing/requestRoute/reqestsRoute');
+const offerRoutes = require('./routes/rideSharing/offerRoute/offerRoute');
+
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
 const app = express();
 import { PrismaClient } from '@prisma/client'
@@ -20,6 +22,7 @@ app.use('/api', commentRoutes);
 app.use('/api', transtporationProviderRoutes);
 app.use('/api',rideSharingRequestRoutes );
 app.use('/api',rideSharingListingRoutes );
+app.use('/api',offerRoutes );
 
 app.get('/',  (req, res) => {
   res.json({

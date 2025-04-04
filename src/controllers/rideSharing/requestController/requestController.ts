@@ -30,6 +30,7 @@ export default class RequestController {
           error: 'Missing required fields' 
         });
       }
+      console.log(startLocationLat, startLocationLng, endLocationLat, endLocationLng);
 
       const newRequest = await this.requestModel.createRequest(
         travelerId,

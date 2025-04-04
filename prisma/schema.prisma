@@ -32,6 +32,8 @@ model User {
   trips                  Trip[]
   questions              Question[]
   comments               Comment[]
+  sentOffers   Offer[] @relation("SentOffers")
+  receivedOffers  Offer[] @relation("ReceivedOffers")
   traveler               Traveler?
   admin                  Admin?
 
@@ -98,33 +100,32 @@ model TransportationRequest {
   travelerId          String
   startLocationText   String
   endLocationText     String
-  startLocationLat  Float?
-  startLocationLng  Float?
-  endLocationLat    Float?
-  endLocationLng    Float?
+  startLocationLat    Float?
+  startLocationLng    Float?
+  endLocationLat      Float?
+  endLocationLng      Float?
   departureTime       DateTime
   seatsNeeded         Int
   budget              Decimal  @db.Decimal(10, 2)
   createdAt           DateTime @default(now())
   traveler            User     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
   bookings            TransportationBooking[]
+  offers              Offer[]  // Added this relation
   
   @@index([travelerId])
   @@index([startLocationText, endLocationText])
   @@index([departureTime])
 }
 
-
-
 model TransportationListing {
   id                 Int      @id @default(autoincrement())
   providerId         String
   startLocationText  String
   endLocationText    String
-  startLocationLat  Float?
-  startLocationLng  Float?
-  endLocationLat    Float?
-  endLocationLng    Float?
+  startLocationLat   Float?
+  startLocationLng   Float?
+  endLocationLat     Float?
+  endLocationLng     Float?
   departureTime      DateTime
   pricePerSeat       Decimal  @db.Decimal(10, 2)
   seatsAvailable     Int
@@ -136,6 +137,7 @@ model TransportationListing {
   provider           TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
   bookings           TransportationBooking[]
   reviews            Review[]                @relation("TransportationListingReviews")
+  offers             Offer[]  // Added this relation
   
   @@index([providerId])
   @@index([startLocationText, endLocationText])
@@ -143,38 +145,64 @@ model TransportationListing {
   @@index([status])
 }
 
-
-
 model TransportationBooking {
   id            Int      @id @default(autoincrement())
   travelerId    String
-  seatsBooked Int
+  seatsBooked   Int
   luggage       String?
   status        String   @default("pending")
   totalPrice    Decimal  @db.Decimal(10, 2)
   createdAt     DateTime @default(now())
-
   bookingSource String   @default("listing") 
-
   // Foreign key to TransportationListing (nullable)
   transportationListingId Int?
   listing               TransportationListing? @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
-
   // Foreign key to TransportationRequest (nullable)
   transportationRequestId Int?
   request               TransportationRequest? @relation(fields: [transportationRequestId], references: [id], onDelete: Cascade)
-
   traveler User @relation(fields: [travelerId], references: [id], onDelete: Cascade)
-
   reviews  Review[] @relation("TransportationBookingReviews")
-
+  offerId  Int?     // Added this field to track which offer created this booking
+  offer    Offer?   @relation(fields: [offerId], references: [id]) // Added this relation
+  
   @@index([travelerId])
   @@index([status])
   @@index([createdAt])
   @@index([transportationListingId])
   @@index([transportationRequestId])
+  @@index([offerId]) // Added this index
 }
 
+// New model for offers
+model Offer {
+  id                   Int      @id @default(autoincrement())
+  senderId             String   // ID of the user making the offer
+  recipientId          String   // ID of the user receiving the offer
+  pricePerSeat         Decimal  @db.Decimal(10, 2)
+  seatsRequested       Int      // Number of seats being requested/offered
+  message              String?  // Optional message with the offer
+  status               String   @default("pending") // pending, accepted, rejected, expired
+  createdAt            DateTime @default(now())
+  
+  // References to either a listing or request (one must be non-null)
+  transportationListingId Int?
+  listing                 TransportationListing? @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
+  transportationRequestId Int?
+  request                 TransportationRequest? @relation(fields: [transportationRequestId], references: [id], onDelete: Cascade)
+  
+  // Relations to users
+  sender                  User    @relation("SentOffers", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient               User    @relation("ReceivedOffers", fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  // Relation to bookings created from this offer
+  bookings                TransportationBooking[]
+  
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([status])
+  @@index([transportationListingId])
+  @@index([transportationRequestId])
+}
 
 
 model Accommodation {

@@ -1,7 +1,4 @@
-import { Comment } from "@prisma/client";
-import { BaseModel } from "../questionBaseModel";
 import { prisma } from "../../../utils/prismaClient";
-import { w } from "@faker-js/faker/dist/airline-CBNP41sR";
 
 export class PrisnaCommentModel {
   getAllItems(
