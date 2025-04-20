@@ -36,6 +36,39 @@ export default class UserController {
         }
     }
 
+
+    async getAllUsers(req, res) {
+        try {
+            const page = parseInt(req.query.page) || 1;
+            const pageSize = parseInt(req.query.pageSize) || 10;
+            
+            const filter = {};
+            if (req.query.username) filter.username = req.query.username;
+            if (req.query.email) filter.email = req.query.email;
+            if (req.query.accountStatus) filter.accountStatus = req.query.accountStatus;
+            if (req.query.role) filter.role = req.query.role;
+            
+            const result = await this.model.getAllUsers(page, pageSize, Object.keys(filter).length > 0 ? filter : undefined);
+            
+            res.json({
+                success: true,
+                data: result.users,
+                pagination: {
+                    total: result.total,
+                    page: result.page,
+                    pageSize: result.pageSize,
+                    totalPages: result.totalPages
+                }
+            });
+        } catch (error) {
+            console.error("Error in getAllUsers controller:", error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to retrieve users'
+            });
+        }
+    }
+
     async createUser(req, res) {
         try {
             const { id, username, email, password } = req.body;

@@ -78,6 +78,9 @@ export class PrisnaCommentModel {
         questionId,
         content}
   });
+
+
+  
   }
 
 

@@ -105,6 +105,122 @@ export default class UserModel {
 }
 
 
+async getAllUsers(
+  page: number = 1, 
+  pageSize: number = 10,
+  filter?: { 
+    username?: string, 
+    email?: string, 
+    accountStatus?: string,
+    role?: string
+  }
+): Promise<{
+  users: {
+    id: string;
+    username: string;
+    email: string;
+    passwordHash: string;
+    mediaUrls: string[];
+    accountStatus: string;
+    createdAt: Date;
+    updatedAt: Date;
+    roles: string[];
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  try {
+    const skip = (page - 1) * pageSize;
+    const take = pageSize;
+    
+    const where: any = {};
+    
+    if (filter) {
+      if (filter.username) {
+        where.username = { contains: filter.username, mode: 'insensitive' };
+      }
+      if (filter.email) {
+        where.email = { contains: filter.email, mode: 'insensitive' };
+      }
+      if (filter.accountStatus) {
+        where.accountStatus = filter.accountStatus;
+      }
+    }
+    
+    // Role filtering requires a different approach
+    let roleFilter = undefined;
+    if (filter?.role) {
+      roleFilter = {
+        some: {
+          role: {
+            roleName: filter.role
+          }
+        }
+      };
+    }
+    
+    // Get total count for pagination metadata
+    const totalCount = await prisma.user.count({ 
+      where,
+      ...(roleFilter && { include: { roles: true } })
+    });
+    
+    // Fetch users with pagination
+    const users = await prisma.user.findMany({
+      where,
+      skip,
+      take,
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+    
+    // Apply role filter manually if needed
+    let filteredUsers = users;
+    if (filter?.role) {
+      filteredUsers = users.filter(user => 
+        user.roles.some(userRole => 
+          (userRole.role as any).roleName === filter.role
+        )
+      );
+    }
+    
+    // Transform users to match return type
+    const transformedUsers = filteredUsers.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      mediaUrls: user.mediaUrls,
+      accountStatus: user.accountStatus,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      roles: user.roles.map((userRole: any) => userRole.role.roleName),
+    }));
+    
+    // Calculate total pages
+    const totalPages = Math.ceil(totalCount / pageSize);
+    
+    return {
+      users: transformedUsers,
+      total: totalCount,
+      page,
+      pageSize,
+      totalPages,
+    };
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    throw error;
+  }
+}
+
+
   async getRoles(id: string): Promise<string[]> {
     try {
       const userWithRoles = await prisma.user.findUnique({

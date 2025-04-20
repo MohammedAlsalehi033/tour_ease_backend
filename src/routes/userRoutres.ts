@@ -28,7 +28,7 @@ router.post('/createUser', userController.createUser.bind(userController));
 router.get('/getRole', userController.getRole.bind(userController));
 router.post('/updateUserRole', userController.updateRole.bind(userController));
 router.get('/getUserById', userController.getUserById.bind(userController));
-
+router.get("/getAllUsers", userController.getAllUsers.bind(userController))
 router.post(
     '/profile-picture/:id?', 
     upload.single('profilePicture'), 
