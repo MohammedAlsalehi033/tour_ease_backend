@@ -29,7 +29,7 @@ app.use('/api',adminRouter );
 app.get('/',  (req, res) => {
   res.json({
     
-    message: 'Welcome to the Q&A API this is a test for the testing !'});
+    message: 'Welcome Aqeel'});
 });
 
 
