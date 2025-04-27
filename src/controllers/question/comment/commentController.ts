@@ -14,10 +14,9 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
             const page = parseInt(req.body.page) || 1;
             const limit = parseInt(req.body.limit) || 10;
             const sort = req.body.sort || 'newest';
-            const questionId = req.body.questionId;
+            const questionId = parseInt(req.query.id);
 
             const comments = await this.commentModel.getAllItems(page, limit, sort,questionId );
-            console.log(comments)
 
             const commentsWithSignedUrls = await Promise.all(
                 comments.map(async (comment) => {
@@ -62,6 +61,25 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
                 data: newComment
             });
         } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+
+    async deleteComment (req, res){
+        try{
+            const {id} = req.params
+            const response = await this.commentModel.deleteItem(id)
+            res.status(201).json({
+                success: true,
+                data: response
+            });
+        }
+        
+        catch(error){
             res.status(500).json({
                 success: false,
                 message: error.message

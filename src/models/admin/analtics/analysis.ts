@@ -63,14 +63,11 @@ export class AnalyticsModel {
     }
 
     async getUserRegistrationsOverTime(interval: 'day' | 'week' | 'month' = 'day', filters: DateRangeFilter = {}): Promise<CountOverTime[]> {
-       // NOTE: Prisma's groupBy doesn't easily support date truncation across databases.
-       // $queryRaw is often better for complex date grouping.
-       // This example shows a simplified approach; adjust $queryRaw based on your specific database (PostgreSQL shown).
+
 
         const startDate = filters.startDate?.toISOString();
         const endDate = filters.endDate?.toISOString();
 
-        // Adjust date_trunc interval based on parameter
         const dateTruncInterval = interval;
 
         const result: any[] = await prisma.$queryRaw`
@@ -531,9 +528,3 @@ export class AnalyticsModel {
 
 }
 
-// Example Usage (in a service or controller)
-// const analyticsModel = new AnalyticsModel();
-// const totalUsers = await analyticsModel.getTotalUserCount();
-// const recentBookings = await analyticsModel.getTotalTransportationBookings({ startDate: new Date('2025-04-01') });
-// const dailyRegistrations = await analyticsModel.getUserRegistrationsOverTime('day', { startDate: new Date('2025-04-10'), endDate: new Date() });
-// const revenue = await analyticsModel.getTotalRevenue({ status: 'confirmed' });

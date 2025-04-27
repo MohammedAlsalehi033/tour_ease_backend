@@ -2,6 +2,109 @@ import { prisma } from "../../utils/prismaClient";
 
 export class AdminModel {
 
+    
+
+    async getUserById(id: string) {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { id: id },
+                include: {
+                    roles: {
+                        include: {
+                            role: true,
+                        }
+                    },
+                    transportationProvider: {
+                        include: {
+                            listings: true,
+                        }
+                    },
+                    accommodationProvider: {
+                        include: {
+                            accommodations: true,
+                        }
+                    },
+                    transportationBookings: {
+                        include: {
+                            listing: true,
+                            request: true,
+                            reviews: true,
+                            offer: true,
+                        }
+                    },
+                    accommodationBookings: {
+                        include: {
+                             room: true,
+                             payment: true,
+                             reviews: true,
+                        }
+                    },
+                    sentMessages: true,
+                    receivedMessages: true,
+                    notifications: true,
+                    reviews: true,
+                    trips: {
+                        include: {
+                            activities: true,
+                        }
+                    },
+                    questions: {
+                         include: {
+                            comments: true,
+                            vote: true,
+                         }
+                    },
+                    comments: true,
+                    sentOffers: {
+                         include: {
+                            listing: true,
+                            request: true,
+                            bookings: true,
+                            recipient: false,
+                            sender: false
+                         }
+                    },
+                    receivedOffers: {
+                         include: {
+                            listing: true,
+                            request: true,
+                            bookings: true,
+                            recipient: false,
+                            sender: false
+                         }
+                    },
+                    traveler: true,
+                    admin: true,
+                    Vote: true,
+                    TransportationRequest: {
+                        include: {
+                            bookings: true,
+                            offers: true,
+                        }
+                    }
+                }
+            });
+            return user;
+        } catch (error) {
+            console.error("Error fetching user by ID:", error);
+            throw new Error(`Failed to fetch user with ID ${id}`);
+        }
+    }
+
+    async blockUser(id: string) {
+         try {
+             const updatedUser = await prisma.user.update({
+                 where: { id: id },
+                 data: { accountStatus: 'blocked' },
+             });
+             return updatedUser;
+         } catch (error) {
+             console.error("Error blocking user:", error);
+             throw new Error(`Failed to block user with ID ${id}`);
+         }
+     }
+
+
     async getTransportationProvidersByStatus(status = "pending") {
         return await prisma.transportationProvider.findMany({
             where: {

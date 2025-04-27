@@ -11,6 +11,7 @@ const commentController = new CommentController(new PrisnaCommentModel , new Fil
 
 
 router.get("/commments" ,commentController.getAllCommentsForQuestion.bind(commentController));
+router.delete('/comments/:id' , commentController.deleteComment.bind(commentController))
 router.post("/commments" ,commentController.createComment.bind(commentController));
 
 

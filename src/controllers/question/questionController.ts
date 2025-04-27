@@ -156,9 +156,7 @@ class QuestionController {
   async deleteQuestion(req, res) {
     try {
       const questionId = req.params.id;
-      const userId = req.user.id;
       
-      // First check if question exists and if user is authorized
       const question = await this.questionModel.getItemById(questionId);
       
       if (!question) {
@@ -168,12 +166,7 @@ class QuestionController {
         });
       }
       
-      if (question.userId !== userId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Unauthorized: You can only delete your own questions'
-        });
-      }
+   
       
       await this.questionModel.deleteItem(questionId);
       

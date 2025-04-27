@@ -4,7 +4,13 @@ import { AdminModel } from '../../models/admin/adminModel';
 import { FileUploaderForS3 } from '../../utils/FileUploader';
 
 const router = express.Router();
-const adminController = new AdminController(new AdminModel(), new FileUploaderForS3());
+const adminModel = new AdminModel();
+const fileUploader = new FileUploaderForS3();
+const adminController = new AdminController(adminModel, fileUploader);
+
+// User Management routes
+router.get("/users/:id", adminController.getUserById.bind(adminController));
+router.put("/users/:id/block", adminController.blockUser.bind(adminController));
 
 // Transportation Provider routes
 router.get("/transportationProviders", adminController.getPendingTransportationProviders.bind(adminController));
