@@ -8,7 +8,7 @@ const rideSharingRequestRoutes = require('./routes/rideSharing/requestRoute/reqe
 const offerRoutes = require('./routes/rideSharing/offerRoute/offerRoute');
 const adminRouter = require("./routes/admin/adminRoute")
 const adminAnalysisRouter = require("./routes/admin/analysis/analysisRoute")
-
+const transportationBookingRouter = require ("./routes/rideSharing/rideBookingRoute/rideBookingRoute")
 
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
 const app = express();
@@ -27,6 +27,7 @@ app.use('/api',rideSharingRequestRoutes );
 app.use('/api',rideSharingListingRoutes );
 app.use('/api',offerRoutes );
 app.use('/api',adminRouter );
+app.use('/api',transportationBookingRouter);
 app.use('/api/admin',adminAnalysisRouter );
 
 app.get('/',  (req, res) => {

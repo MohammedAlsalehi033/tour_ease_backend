@@ -267,64 +267,104 @@ export class PrismaOfferModel {
     });
   }
 
-  // Accept an offer and create a booking
-  async acceptOffer(offerId: number): Promise<Offer> {
-    // First get the offer to access its details
-    const offer = await prisma.offer.findUnique({
-      where: { id: offerId },
-    });
-
-    if (!offer) {
-      throw new Error("Offer not found");
-    }
-
-    // Start a transaction to ensure data consistency
-    return prisma.$transaction(async (tx) => {
-      // Update the offer status
-      const updatedOffer = await tx.offer.update({
-        where: { id: offerId },
-        data: { status: "accepted" },
-      });
-
-      // Calculate total price
-      const totalPrice = Number(offer.pricePerSeat) * offer.seatsRequested;
-
-      // Create a booking based on the offer
-      const booking = await tx.transportationBooking.create({
-        data: {
-          travelerId: offer.transportationListingId
-            ? offer.senderId
-            : offer.recipientId,
-          seatsBooked: offer.seatsRequested,
-          status: "pending",
-          totalPrice,
-          bookingSource: offer.transportationListingId ? "listing" : "request",
-          transportationListingId: offer.transportationListingId,
-          transportationRequestId: offer.transportationRequestId,
-          offerId: offer.id,
-        },
-      });
-
-      // If booking from a listing, update the available seats
-      if (offer.transportationListingId) {
-        const listing = await tx.transportationListing.findUnique({
-          where: { id: offer.transportationListingId },
-        });
-
-        if (listing) {
-          await tx.transportationListing.update({
-            where: { id: offer.transportationListingId },
-            data: {
-              seatsAvailable: listing.seatsAvailable - offer.seatsRequested,
-            },
-          });
-        }
-      }
-
-      return { offer: updatedOffer, booking };
-    });
+// Accept an offer and create a booking, rejecting all other competing offers
+async acceptOffer(offerId: number): Promise<any> {
+  // First get the offer to access its details
+  const offer = await prisma.offer.findUnique({
+    where: { id: offerId },
+  });
+  
+  if (!offer) {
+    throw new Error("Offer not found");
   }
-
+  
+  // Start a transaction to ensure data consistency
+  return prisma.$transaction(async (tx) => {
+    // Update the offer status
+    const updatedOffer = await tx.offer.update({
+      where: { id: offerId },
+      data: { status: "accepted" },
+    });
+    
+    // Automatically reject all other offers for the same listing or request
+    if (offer.transportationListingId) {
+      // If this is a listing-based offer, reject other offers for the same listing
+      await tx.offer.updateMany({
+        where: {
+          transportationListingId: offer.transportationListingId,
+          id: { not: offerId },
+          status: { in: ["pending", "countered"] }  // Only reject active offers
+        },
+        data: {
+          status: "rejected"
+        }
+      });
+    } else if (offer.transportationRequestId) {
+      // If this is a request-based offer, reject other offers for the same request
+      await tx.offer.updateMany({
+        where: {
+          transportationRequestId: offer.transportationRequestId,
+          id: { not: offerId },
+          status: { in: ["pending", "countered"] }  // Only reject active offers
+        },
+        data: {
+          status: "rejected"
+        }
+      });
+    }
+    
+    // Calculate total price
+    const totalPrice = Number(offer.pricePerSeat) * offer.seatsRequested;
+    
+    // Create a booking based on the offer
+    const booking = await tx.transportationBooking.create({
+      data: {
+        travelerId: offer.transportationListingId
+          ? offer.senderId
+          : offer.recipientId,
+        seatsBooked: offer.seatsRequested,
+        status: "pending",
+        totalPrice,
+        bookingSource: offer.transportationListingId ? "listing" : "request",
+        transportationListingId: offer.transportationListingId,
+        transportationRequestId: offer.transportationRequestId,
+        offerId: offer.id,
+      },
+    });
+    
+    // If booking from a listing, update the available seats
+    if (offer.transportationListingId) {
+      const listing = await tx.transportationListing.findUnique({
+        where: { id: offer.transportationListingId },
+      });
+      if (listing) {
+        await tx.transportationListing.update({
+          where: { id: offer.transportationListingId },
+          data: {
+            seatsAvailable: listing.seatsAvailable - offer.seatsRequested,
+          },
+        });
+      }
+    }
+    
+    return { 
+      offer: updatedOffer, 
+      booking,
+      // Optionally return information about rejected offers
+      rejectedOffersCount: offer.transportationListingId || offer.transportationRequestId ? 
+        await tx.offer.count({
+          where: {
+            OR: [
+              { transportationListingId: offer.transportationListingId },
+              { transportationRequestId: offer.transportationRequestId }
+            ],
+            id: { not: offerId },
+            status: "rejected"
+          }
+        }) : 0
+    };
+  });
+}
   // Reject an offer
   rejectOffer(offerId: number): Promise<Offer> {
     return prisma.offer.update({

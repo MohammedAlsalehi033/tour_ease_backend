@@ -54,6 +54,8 @@ export default class ListingModel {
     departureAfter?: Date,
     departureBefore?: Date
   ): Promise<any> {
+
+
     try {
       // Create base query with explicit column selection and aliases for each table
       let query = `

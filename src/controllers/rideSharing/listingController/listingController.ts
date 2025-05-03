@@ -91,8 +91,8 @@ export default class ListingController {
       );
     
       return res.status(200).json({
-        success: true,
-        count: results.length,
+      success: true,
+      count: results.length,
         data: results
       });
     } catch (error) {
