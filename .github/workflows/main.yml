@@ -1,18 +1,14 @@
 name: Node.js CI/CD Pipeline
-
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -46,14 +42,11 @@ jobs:
             # You might want to add notification here (Slack/Email)
           fi
           
-          echo "🔄 Managing PM2 process..."
-          if pm2 describe $APP_NAME > /dev/null; then
-            echo "🟢 Reloading existing PM2 process..."
-            pm2 reload $APP_NAME --update-env
-          else
-            echo "🟡 Starting new PM2 process..."
+          echo "🔄 Restarting PM2 process with ID 4..."
+          pm2 restart 4 --update-env || {
+            echo "❌ Failed to restart PM2 process with ID 4. Starting the application..."
             pm2 start npm --name "$APP_NAME" -- run start
-          fi
+          }
           
           pm2 save
           echo "✅ Deployment procedure completed!"

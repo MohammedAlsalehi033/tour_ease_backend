@@ -11,7 +11,9 @@ export class transportationBookingModel {
             const bookings = await prisma.transportationBooking.findMany({
                 where: { 
                     travelerId: userId, 
-                    status : "active"
+                    status :  {
+                        in: ["active", "pending"] 
+                    }
                 },
                 // You might want to include related data, for example:
                 include: {
