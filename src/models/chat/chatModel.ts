@@ -108,8 +108,8 @@ export class PrismaMessageModel {
     }
 
     return prisma.message.findMany({
-      skip,
-      take: limit,
+      // skip,
+      // take: limit,
       orderBy,
       where: {
         OR: [
