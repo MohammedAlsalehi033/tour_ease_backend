@@ -14,12 +14,10 @@ const transportationBookingRouter = require("./routes/rideSharing/rideBookingRou
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
 const { createChatRouter } = require("./routes/chat/chatRouter");
 import { PrismaClient } from '@prisma/client';
-
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-
 const io = new SocketIOServer(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "*", // In production, use specific origin
@@ -28,14 +26,20 @@ const io = new SocketIOServer(server, {
   }
 });
 
-const connectedUsers = new Map(); 
+// Shared map of connected users - will be used by both socket server and controllers
+const connectedUsers = new Map();
 
+// Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+  console.log('New socket connection:', socket.id);
   
   socket.on('user_connected', (userId) => {
+    console.log(`User ${userId} connected with socket ${socket.id}`);
+    // Store userId in both the Map and socket.data for consistent access
     connectedUsers.set(userId, socket.id);
+    socket.data.userId = userId;
     
+    // Broadcast to other users that this user is now online
     socket.broadcast.emit('user_status_change', { userId, status: 'online' });
   });
   
@@ -47,6 +51,7 @@ io.on('connection', (socket) => {
   });
   
   socket.on('disconnect', () => {
+    // Find the user ID associated with this socket
     let disconnectedUserId = null;
     for (const [userId, socketId] of connectedUsers.entries()) {
       if (socketId === socket.id) {
@@ -80,30 +85,19 @@ app.use('/api', rideSharingListingRoutes);
 app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
-app.use('/api', createChatRouter(io)); // Pass io to chat router
+// Pass both io and connectedUsers to the chat router
+app.use('/api', createChatRouter(io, connectedUsers)); 
 app.use('/api/admin', adminAnalysisRouter);
+
+// Simple test endpoint
+app.get('/test-socket', (req, res) => {
+  res.sendFile(__dirname + '/test-chat.html');
+});
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome Aqeel'
+    message: 'Welcome to the API'
   });
-});
-
-app.post('/verifyJWT', async (req, res) => {
-  const idToken = req.headers.authorization?.split('Bearer ')[1];
-  if (!idToken) {
-    return res.status(401).send('Unauthorized: No token provided');
-  }
-  try {
-    console.log(idToken);
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const uid = decodedToken.uid;
-    const { name, email } = req.body;
-    console.log(idToken);
-    res.send({ message: 'User created successfully', uid: uid });
-  } catch (error) {
-    res.status(403).send('Unauthorized: Invalid token');
-  }
 });
 
 // Error handling middleware
@@ -119,4 +113,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Socket.IO server is running`);
+  console.log(`Test the socket connection at http://localhost:${PORT}/test-socket`);
 });

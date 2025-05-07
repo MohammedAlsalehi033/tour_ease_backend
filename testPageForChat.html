@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Connection Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #connection-status {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .connecting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #events-log {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .event-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .event-entry .timestamp {
+            color: #6c757d;
+            font-size: 0.8em;
+        }
+        .event-entry .event-name {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .event-entry .event-data {
+            font-family: monospace;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Socket.IO Connection Test</h1>
+    
+    <div id="connection-status" class="disconnected">Disconnected</div>
+    
+    <div class="form-group">
+        <label for="server-url">Server URL:</label>
+        <input type="text" id="server-url" placeholder="http://your-server-url" style="width: 70%;">
+        <button id="connect-btn">Connect</button>
+        <button id="disconnect-btn" disabled>Disconnect</button>
+    </div>
+    
+    <div class="form-group">
+        <label for="user-id">User ID:</label>
+        <input type="text" id="user-id" placeholder="Enter your user ID">
+        <button id="connect-user-btn" disabled>Connect User</button>
+    </div>
+    
+    <div class="form-group">
+        <label for="event-name">Custom Event:</label>
+        <input type="text" id="event-name" placeholder="Event name">
+        <input type="text" id="event-data" placeholder="Event data (JSON)">
+        <button id="send-event-btn" disabled>Send Event</button>
+    </div>
+    
+    <h2>Events Log</h2>
+    <div id="events-log"></div>
+    
+    <script>
+        let socket;
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const connectUserBtn = document.getElementById('connect-user-btn');
+        const sendEventBtn = document.getElementById('send-event-btn');
+        const connectionStatus = document.getElementById('connection-status');
+        const eventsLog = document.getElementById('events-log');
+        
+        // Helper function to log events
+        function logEvent(eventName, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'event-entry';
+            
+            let dataStr = '';
+            try {
+                if (data !== undefined) {
+                    dataStr = typeof data === 'object' ? JSON.stringify(data) : data.toString();
+                }
+            } catch (e) {
+                dataStr = 'Unable to stringify data';
+            }
+            
+            logEntry.innerHTML = `
+                <span class="timestamp">${timestamp}</span>
+                <span class="event-name">${eventName}</span>
+                ${dataStr ? `<div class="event-data">${dataStr}</div>` : ''}
+            `;
+            
+            eventsLog.prepend(logEntry);
+        }
+        
+        // Connect to Socket.IO server
+        connectBtn.addEventListener('click', () => {
+            const serverUrl = document.getElementById('server-url').value.trim();
+            
+            if (!serverUrl) {
+                alert('Please enter a server URL');
+                return;
+            }
+            
+            try {
+                connectionStatus.className = 'connecting';
+                connectionStatus.textContent = 'Connecting...';
+                
+                // Close existing connection if any
+                if (socket) {
+                    socket.disconnect();
+                }
+                
+                // Create new connection
+                socket = io(serverUrl, {
+                    transports: ['websocket'],
+                    autoConnect: true
+                });
+                
+                // Set up event listeners
+                socket.on('connect', () => {
+                    connectionStatus.className = 'connected';
+                    connectionStatus.textContent = 'Connected (Socket ID: ' + socket.id + ')';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    connectUserBtn.disabled = false;
+                    sendEventBtn.disabled = false;
+                    logEvent('connect', 'Socket connected successfully');
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    connectionStatus.className = 'disconnected';
+                    connectionStatus.textContent = 'Disconnected (' + reason + ')';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    connectUserBtn.disabled = true;
+                    sendEventBtn.disabled = true;
+                    logEvent('disconnect', reason);
+                });
+                
+                socket.on('connect_error', (error) => {
+                    connectionStatus.className = 'disconnected';
+                    connectionStatus.textContent = 'Connection Error';
+                    logEvent('connect_error', error.message);
+                });
+                
+                // Listen for any event
+                const onevent = socket.onevent;
+                socket.onevent = function(packet) {
+                    const args = packet.data || [];
+                    if (args.length > 0 && args[0] !== 'connect' && args[0] !== 'disconnect') {
+                        logEvent(args[0], args.length > 1 ? args[1] : undefined);
+                    }
+                    onevent.call(this, packet);
+                };
+                
+            } catch (error) {
+                connectionStatus.className = 'disconnected';
+                connectionStatus.textContent = 'Connection Failed: ' + error.message;
+                logEvent('error', error.message);
+            }
+        });
+        
+        // Disconnect from server
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+                logEvent('manual_disconnect', 'User initiated disconnect');
+            }
+        });
+        
+        // Connect user
+        connectUserBtn.addEventListener('click', () => {
+            const userId = document.getElementById('user-id').value.trim();
+            
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+            
+            if (socket && socket.connected) {
+                socket.emit('user_connected', userId);
+                logEvent('user_connected', userId);
+            }
+        });
+        
+        // Send custom event
+        sendEventBtn.addEventListener('click', () => {
+            const eventName = document.getElementById('event-name').value.trim();
+            const eventDataStr = document.getElementById('event-data').value.trim();
+            
+            if (!eventName) {
+                alert('Please enter an event name');
+                return;
+            }
+            
+            let eventData;
+            try {
+                eventData = eventDataStr ? JSON.parse(eventDataStr) : '';
+            } catch (e) {
+                eventData = eventDataStr; // Use as string if not valid JSON
+            }
+            
+            if (socket && socket.connected) {
+                socket.emit(eventName, eventData);
+                logEvent('sent_' + eventName, eventData);
+            }
+        });
+    </script>
+</body>
+</html>

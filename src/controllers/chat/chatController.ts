@@ -6,37 +6,27 @@ export class MessageController {
   private messageModel: PrismaMessageModel;
   private fileUploader: FileUploaderForS3;
   private io: SocketIOServer;
+  private connectedUsers: Map<string, string>;
 
   constructor(
     messageModel: PrismaMessageModel, 
     fileUploader: FileUploaderForS3,
-    io: SocketIOServer
+    io: SocketIOServer,
+    connectedUsers: Map<string, string>
   ) {
     this.messageModel = messageModel;
     this.fileUploader = fileUploader;
     this.io = io;
+    this.connectedUsers = connectedUsers;
   }
 
- 
   private isUserConnected(userId: string): boolean {
-    const sockets = this.io.sockets.sockets;
-    for (const [socketId, socket] of sockets.entries()) {
-      if (socket.data.userId === userId) {
-        return true;
-      }
-    }
-    return false;
+    return this.connectedUsers.has(userId);
   }
-
 
   private getUserSocketId(userId: string): string | null {
-    const sockets = this.io.sockets.sockets;
-    for (const [socketId, socket] of sockets.entries()) {
-      if (socket.data.userId === userId) {
-        return socketId;
-      }
-    }
-    return null;
+    console.log(this.connectedUsers)
+    return this.connectedUsers.get(userId) || null;
   }
 
   async getChatsForUser(req, res) {
@@ -119,8 +109,6 @@ export class MessageController {
   async sendMessage(req, res) {
     try {
       const { senderId, receiverId, content } = req.body;
-      
-      // Validate input
       if (!senderId || !receiverId || !content) {
         return res.status(400).json({
           success: false,
@@ -128,15 +116,14 @@ export class MessageController {
         });
       }
       
-      // Store the message in the database
       const newMessage = await this.messageModel.sendMessage(
         senderId,
         receiverId,
         content
       );
       
-      // Check if receiver is connected, if yes, emit the message via socket
       const receiverSocketId = this.getUserSocketId(receiverId);
+      console.log(receiverSocketId)
       if (receiverSocketId) {
         this.io.to(receiverSocketId).emit('new_message', newMessage);
       }

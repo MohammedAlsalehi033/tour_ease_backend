@@ -4,15 +4,16 @@ import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Server as SocketIOServer } from "socket.io";
 import express from 'express';
 
-// Export a function that takes the io instance and returns the router
-export const createChatRouter = (io) => {
+// Export a function that takes the io instance and connectedUsers Map and returns the router
+export const createChatRouter = (io, connectedUsers) => {
   const router = express.Router();
   
-  // Initialize controller with the Socket.IO instance
+  // Initialize controller with the Socket.IO instance and connectedUsers Map
   const messageController = new MessageController(
     new PrismaMessageModel(), 
     new FileUploaderForS3(),
-    io
+    io,
+    connectedUsers
   );
   
   // Get all unique chat partners for a user
