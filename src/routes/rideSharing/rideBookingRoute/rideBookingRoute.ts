@@ -8,6 +8,7 @@ const transportationBookingControllerinstance = new transportationBookingControl
 
 router.get("/booking/traveler/:travlerId", transportationBookingControllerinstance.getBookingByTravelerId.bind(transportationBookingControllerinstance));
 router.get("/booking/provider/:providerId", transportationBookingControllerinstance.getBookingByTransporationProviderId.bind(transportationBookingControllerinstance));
+router.post("/booking/status/", transportationBookingControllerinstance.updateBookingStatus.bind(transportationBookingControllerinstance));
 
 
 module.exports = router;

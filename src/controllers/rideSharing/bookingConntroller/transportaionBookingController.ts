@@ -57,4 +57,21 @@ export class transportationBookingController {
             });
         }
     }
+
+    async updateBookingStatus (req, res){
+        try {
+            const {bookingId , status} = req.query
+            const data = await this.transportationBookingModelInstance.changeBookingState(bookingId, status) 
+            return res.status(200).json({
+                success: true,
+                data: data
+            });
+        } catch (error) {
+            console.error("Error in getBookingByTransporationProviderId:", error);
+            return res.status(500).json({
+                success: false,
+                message: error instanceof Error ? error.message : "Internal server error retrieving provider bookings."
+            });
+        }
+    }
 }

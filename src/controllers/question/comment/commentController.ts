@@ -11,9 +11,9 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
 
     async getAllCommentsForQuestion(req, res) {
         try {
-            const page = parseInt(req.body.page) || 1;
-            const limit = parseInt(req.body.limit) || 10;
-            const sort = req.body.sort || 'newest';
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const sort = req.query.sort || 'newest';
             const questionId = parseInt(req.query.id);
 
             const comments = await this.commentModel.getAllItems(page, limit, sort,questionId );

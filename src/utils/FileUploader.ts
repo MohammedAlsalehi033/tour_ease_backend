@@ -64,6 +64,8 @@ export class FileUploaderForS3 extends FileUploader {
       Bucket: this.bucket,
       Key: key,
     });
+
+    //images/mohammed/profilepic.png
     const signedUrl = await getSignedUrl(this.s3Client, getCommand, {
       expiresIn: 3600,
     });
