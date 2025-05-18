@@ -1,45 +1,81 @@
-export {};
+// auth.middleware.js
+import admin from 'firebase-admin';
+import {prisma} from '../utils/prismaClient';
 
 
-const jwt = require('jsonwebtoken');
-const prisma = require('../utils/prismaClient');
 
-const authMiddleware = async (req, res, next) => {
-  try {
-    // Get token from header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({
+
+ * Authentication middleware using Firebase Admin SDK with role verification
+ * @param {Array<String>} requiredRoles - Optional array of role names that are allowed to access the route
+ */
+const authMiddleware = (requiredRoles = []) => {
+  return async (req, res, next) => {
+    try {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'No authentication token, authorization denied'
+        });
+      }
+
+      // Verify the Firebase token
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      
+      // Find the user in our database using the Firebase UID
+      const user = await prisma.user.findUnique({
+        where: { id: decodedToken.uid },
+        include: {
+          roles: {
+            include: {
+              role: true
+            }
+          }
+        }
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found in database'
+        });
+      }
+
+      // Check account status
+      if (user.accountStatus !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
+
+      // If roles are required, verify that the user has at least one of the required roles
+      if (requiredRoles.length > 0) {
+        const userRoleNames = user.roles.map(userRole => userRole.role.roleName);
+        const hasRequiredRole = requiredRoles.some(role => userRoleNames.includes(role));
+        
+        if (!hasRequiredRole) {
+          return res.status(403).json({
+            success: false,
+            message: 'Insufficient permissions to access this resource'
+          });
+        }
+      }
+
+      // Attach the user to the request object
+      req.user = user;
+      
+      // Continue to the next middleware or route handler
+      next();
+    } catch (error) {
+      console.error('Authentication error:', error);
+      res.status(401).json({
         success: false,
-        message: 'No authentication token, authorization denied'
+        message: 'Token is invalid or expired'
       });
     }
-
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Find user in database
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id }
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Add user object to request
-    req.user = user;
-    next();
-  } catch (error) {
-    res.status(401).json({
-      success: false,
-      message: 'Token is not valid'
-    });
-  }
+  };
 };
 
 module.exports = authMiddleware;

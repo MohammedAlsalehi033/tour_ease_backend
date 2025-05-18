@@ -45,148 +45,152 @@ export default class ListingModel {
   }
 
 
-  async searchNearbyListings(
-    lat: number,
-    lng: number,
-    radiusKm: number = 30,
-    minSeats: number = 1,
-    maxPrice?: number,
-    departureAfter?: Date,
-    departureBefore?: Date
-  ): Promise<any> {
+async searchNearbyListings(
+  lat: number,
+  lng: number,
+  radiusKm: number = 30,
+  minSeats: number = 1,
+  maxPrice?: number,
+  departureAfter?: Date,
+  departureBefore?: Date
+): Promise<any> {
+  try {
+    // Create base query with explicit column selection and aliases for each table
+    let query = `
+      SELECT
+        -- Listing fields with table prefix
+        tl.id as "listing_id", 
+        tl."providerId" as "listing_providerId",
+        tl."startLocationLat" as "listing_startLocationLat",
+        tl."startLocationLng" as "listing_startLocationLng",
+        tl."startLocationText" as "listing_startLocationText",
+        tl."endLocationLat" as "listing_endLocationLat",
+        tl."endLocationLng" as "listing_endLocationLng",
+        tl."endLocationText" as "listing_endLocationText",
+        tl."departureTime" as "listing_departureTime",
+        tl."seatsAvailable" as "listing_seatsAvailable",
+        tl."pricePerSeat" as "listing_pricePerSeat",
+        tl."status" as "listing_status",
+        tl."mediaUrls" as "listing_mediaUrls",
+        tl."createdAt" as "listing_createdAt",
+        
+        -- Distance calculation from user to start
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
+        ) / 1000 AS distance_km,
+        
+        -- Distance between start and end locations
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(tl."endLocationLng", tl."endLocationLat"), 4326)::geography
+        ) / 1000 AS route_distance_km,
+        
+        -- Provider fields with prefix
+        tp."providerId" as "provider_providerId",
+        tp."licenseMmediaUrls" as "provider_licenseMmediaUrls",
+        tp."vehicleMediaUrls" as "provider_vehicleMediaUrls",
+        tp."vehicleType" as "provider_vehicleType",
+        tp."seatsAvailable" as "provider_seatsAvailable",
+        tp."createdAt" as "provider_createdAt",
+        tp."accountStatus" as "provider_accountStatus",
+        
+        -- User fields with prefix
+        u.id as "user_id",
+        u.email as "user_email",
+        u.username as "user_username",
+        u."mediaUrls" as "user_mediaUrls",
+        u."accountStatus" as "user_accountStatus",
+        u."createdAt" as "user_createdAt"
+        
+      FROM "TransportationListing" tl
+      JOIN "TransportationProvider" tp ON tl."providerId" = tp."providerId"
+      JOIN "User" u ON tp."providerId" = u."id"
+      WHERE 
+    `;
 
-
-    try {
-      // Create base query with explicit column selection and aliases for each table
-      let query = `
-        SELECT
-          -- Listing fields with table prefix
-          tl.id as "listing_id", 
-          tl."providerId" as "listing_providerId",
-          tl."startLocationLat" as "listing_startLocationLat",
-          tl."startLocationLng" as "listing_startLocationLng",
-          tl."startLocationText" as "listing_startLocationText",
-          tl."endLocationLat" as "listing_endLocationLat",
-          tl."endLocationLng" as "listing_endLocationLng",
-          tl."endLocationText" as "listing_endLocationText",
-          tl."departureTime" as "listing_departureTime",
-          tl."seatsAvailable" as "listing_seatsAvailable",
-          tl."pricePerSeat" as "listing_pricePerSeat",
-          tl."status" as "listing_status",
-          tl."mediaUrls" as "listing_mediaUrls",
-          tl."createdAt" as "listing_createdAt",
-          
-          -- Distance calculation
-          ST_Distance(
-            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
-            ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
-          ) / 1000 AS distance_km,
-          
-          -- Provider fields with prefix
-          tp."providerId" as "provider_providerId",
-          tp."licenseMmediaUrls" as "provider_licenseMmediaUrls",
-          tp."vehicleMediaUrls" as "provider_vehicleMediaUrls",
-          tp."vehicleType" as "provider_vehicleType",
-          tp."seatsAvailable" as "provider_seatsAvailable",
-          tp."createdAt" as "provider_createdAt",
-          tp."accountStatus" as "provider_accountStatus",
-          
-          -- User fields with prefix
-          u.id as "user_id",
-          u.email as "user_email",
-          u.username as "user_username",
-          u."mediaUrls" as "user_mediaUrls",
-          u."accountStatus" as "user_accountStatus",
-          u."createdAt" as "user_createdAt"
-          
-        FROM "TransportationListing" tl
-        JOIN "TransportationProvider" tp ON tl."providerId" = tp."providerId"
-        JOIN "User" u ON tp."providerId" = u."id"
-        WHERE 
-      `;
-  
-      // Check if we have coordinates for filtering
-      if (lat && lng) {
-        query += `
-          ST_DWithin(
-            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
-            ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography,
-            ${radiusKm * 1000}
-          )
-          AND 
-        `;
-      }
-  
+    // Check if we have coordinates for filtering
+    if (lat && lng) {
       query += `
-        tl."status" = 'active'
-        AND tl."departureTime" > NOW()
-        AND tl."seatsAvailable" >= ${minSeats}
+        ST_DWithin(
+          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography,
+          ${radiusKm * 1000}
+        )
+        AND 
       `;
-  
-      // Add optional conditions
-      const params: any[] = [];
-      let paramIndex = 1;
-  
-      if (maxPrice !== undefined) {
-        query += ` AND tl."pricePerSeat" <= $${paramIndex}`;
-        params.push(maxPrice);
-        paramIndex++;
-      }
-  
-      if (departureAfter !== undefined) {
-        query += ` AND tl."departureTime" >= $${paramIndex}`;
-        params.push(departureAfter);
-        paramIndex++;
-      }
-  
-      if (departureBefore !== undefined) {
-        query += ` AND tl."departureTime" <= $${paramIndex}`;
-        params.push(departureBefore);
-        paramIndex++;
-      }
-  
-      // Add the ORDER BY clause
-      if (lat && lng) {
-        query += ` ORDER BY distance_km ASC`;
-      } else {
-        query += ` ORDER BY tl."departureTime" ASC`;
-      }
-  
-      // Execute the raw query with parameters
-      const results = await prisma.$queryRawUnsafe(query, ...params);
-      
-      // Process the results to create nested objects
-      const formattedResults = results.map((row: any) => {
-        const listing: any = {};
-        const provider: any = {};
-        const user: any = {};
-        
-        // Process each property in the result based on prefixes
-        for (const key in row) {
-          if (key.startsWith('listing_')) {
-            listing[key.replace('listing_', '')] = row[key];
-          } else if (key.startsWith('provider_')) {
-            provider[key.replace('provider_', '')] = row[key];
-          } else if (key.startsWith('user_')) {
-            user[key.replace('user_', '')] = row[key];
-          } else if (key === 'distance_km') {
-            listing[key] = row[key];
-          }
-        }
-        
-        // Build the nested structure
-        provider.user = user;
-        listing.provider = provider;
-        
-        return listing;
-      });
-      
-      return formattedResults;
-    } catch (error) {
-      console.error("Error searching nearby listings:", error);
-      throw error;
     }
+
+    query += `
+      tl."status" = 'active'
+      AND tl."departureTime" > NOW()
+      AND tl."seatsAvailable" >= ${minSeats}
+    `;
+
+    // Add optional conditions
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (maxPrice !== undefined) {
+      query += ` AND tl."pricePerSeat" <= $${paramIndex}`;
+      params.push(maxPrice);
+      paramIndex++;
+    }
+
+    if (departureAfter !== undefined) {
+      query += ` AND tl."departureTime" >= $${paramIndex}`;
+      params.push(departureAfter);
+      paramIndex++;
+    }
+
+    if (departureBefore !== undefined) {
+      query += ` AND tl."departureTime" <= $${paramIndex}`;
+      params.push(departureBefore);
+      paramIndex++;
+    }
+
+    // Add the ORDER BY clause
+    if (lat && lng) {
+      query += ` ORDER BY distance_km ASC`;
+    } else {
+      query += ` ORDER BY tl."departureTime" ASC`;
+    }
+
+    // Execute the raw query with parameters
+    const results = await prisma.$queryRawUnsafe(query, ...params);
+    
+    // Process the results to create nested objects
+    const formattedResults = results.map((row: any) => {
+      const listing: any = {};
+      const provider: any = {};
+      const user: any = {};
+      
+      // Process each property in the result based on prefixes
+      for (const key in row) {
+        if (key.startsWith('listing_')) {
+          listing[key.replace('listing_', '')] = row[key];
+        } else if (key.startsWith('provider_')) {
+          provider[key.replace('provider_', '')] = row[key];
+        } else if (key.startsWith('user_')) {
+          user[key.replace('user_', '')] = row[key];
+        } else if (key === 'distance_km' || key === 'route_distance_km') {
+          listing[key] = row[key];
+        }
+      }
+      
+      // Build the nested structure
+      provider.user = user;
+      listing.provider = provider;
+      
+      return listing;
+    });
+    
+    return formattedResults;
+  } catch (error) {
+    console.error("Error searching nearby listings:", error);
+    throw error;
   }
+}
 
 
   async getListingById(id: number): Promise<TransportationListing | null> {

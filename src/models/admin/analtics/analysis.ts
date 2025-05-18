@@ -135,7 +135,6 @@ export class AnalyticsModel {
     }
 
     async getTransportationBookingVolumeOverTime(interval: 'day' | 'week' | 'month' = 'day', filters: AnalyticsFilters = {}): Promise<CountOverTime[]> {
-        // Similar to user registration, $queryRaw is preferred for date grouping
         const whereClause = this.buildTransportationBookingWhereRaw(filters); // Helper to build WHERE parts
         const dateTruncInterval = interval;
 
@@ -145,7 +144,7 @@ export class AnalyticsModel {
             ${whereClause}
             GROUP BY date
             ORDER BY date ASC;
-        `); // Use Unsafe cautiously if filters need complex dynamic parts, ensure sanitization
+        `); 
 
          return result.map(r => ({ ...r, date: r.date.toISOString().split('T')[0] }));
     }
@@ -162,7 +161,6 @@ export class AnalyticsModel {
             ORDER BY date ASC;
         `);
 
-         // Prisma returns Decimal for SUM, convert if needed
          return result.map(r => ({
             date: r.date.toISOString().split('T')[0],
             value: r.value ? parseFloat(r.value.toString()) : 0 // Handle potential null SUM
