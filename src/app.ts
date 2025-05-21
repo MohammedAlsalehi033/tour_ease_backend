@@ -35,7 +35,6 @@ io.on('connection', (socket) => {
   
   socket.on('user_connected', (userId) => {
     console.log(`User ${userId} connected with socket ${socket.id}`);
-    // Store userId in both the Map and socket.data for consistent access
     connectedUsers.set(userId, socket.id);
     socket.data.userId = userId;
     
@@ -85,7 +84,9 @@ app.use('/api', rideSharingListingRoutes);
 app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
-// Pass both io and connectedUsers to the chat router
+
+
+
 app.use('/api', createChatRouter(io, connectedUsers)); 
 app.use('/api/admin', adminAnalysisRouter);
 

@@ -25,7 +25,6 @@ export class MessageController {
   }
 
   private getUserSocketId(userId: string): string | null {
-    console.log(this.connectedUsers)
     return this.connectedUsers.get(userId) || null;
   }
 

@@ -66,6 +66,8 @@ export default class ListingController {
       const { 
         lat, 
         lng, 
+        endLat,
+        endLng,
         radiusKm = 30, 
         minSeats = 1, 
         maxPrice, 
@@ -85,6 +87,8 @@ export default class ListingController {
         Number(lng), 
         Number(radiusKm),
         Number(minSeats),
+        endLat ? Number(endLat) : undefined,
+        endLng ? Number(endLng) : undefined,
         maxPrice ? Number(maxPrice) : undefined,
         departureAfter ? new Date(departureAfter as string) : undefined,
         departureBefore ? new Date(departureBefore as string) : undefined
