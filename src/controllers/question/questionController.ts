@@ -1,13 +1,39 @@
+// 1. Correct the import statement for the Google Gemini SDK
+import { GoogleGenerativeAI } from "@google/generative-ai"; 
 import { FileUploaderForS3 } from "../../utils/FileUploader";
+
+// Note: There is no need to import 'OpenAI' if you are using Gemini.
+
 class QuestionController {
   private questionModel;
   private fileUploader: FileUploaderForS3;
-    
+  private model: any; 
+
   constructor(questionModel, fileUploader: FileUploaderForS3) {
     this.questionModel = questionModel;
     this.fileUploader = fileUploader;
-  }
 
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    
+     this.model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: `You are a travel expert. Your role is to provide a mid-to-long and informative answer to travel-related questions.
+        Do not answer if the question is not related to travel.
+        IMPORTANT: You must format your entire response as a single, valid JSON object. Do not add any text before or after the JSON.
+        The JSON object must follow this exact schema:
+        {
+          "title": "A main headline for the travel question.",
+          "introduction": "A 1-3 sentence summary of the answer.",
+          "sections": [
+            {
+              "cardTitle": "The title for a specific section or card.",
+              "cardContent": "The detailed content for this section. Use '\\n' for line breaks."
+            }
+          ]
+        }
+        Create as many sections as needed to answer the question thoroughly.`,
+    });
+  }
   async getAllQuestions(req, res) {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -236,6 +262,47 @@ class QuestionController {
       res.status(500).json({ error: 'Failed to process vote' });
     }
   }
+
+  async askTheAI(req, res) {
+    try {
+      const { title, description, tags } = req.body;
+
+      // Validate that all required fields are present.
+      if (!title || !description) {
+        return res.status(400).json({ error: 'Title, description, and a non-empty array of tags are required.' });
+      }
+
+   const prompt = `Create an answer for the following question: "${title} - ${description}"`;
+
+    const result = await this.model.generateContent(prompt);
+    const response = await result.response;
+    let generatedText = response.text();
+
+
+    const jsonMatch = generatedText.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch && jsonMatch[1]) {
+        generatedText = jsonMatch[1];
+    }
+
+    let jsonData;
+    try {
+      jsonData = JSON.parse(generatedText);
+    } catch (parseError) {
+      console.error('AI did not return valid JSON after cleaning:', generatedText);
+      return res.status(500).json({ error: 'Failed to process AI response as JSON.', rawData: generatedText });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: jsonData 
+    });
+
+  } catch (error) {
+    console.error('Error asking the AI:', error);
+    res.status(500).json({ error: 'Failed to get AI response' });
+  }
+}
+
 }
 
 

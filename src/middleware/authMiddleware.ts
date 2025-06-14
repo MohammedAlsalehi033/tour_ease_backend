@@ -1,13 +1,7 @@
-// auth.middleware.js
-import admin from 'firebase-admin';
-import {prisma} from '../utils/prismaClient';
+import { prisma } from '../utils/prismaClient.ts';
+import admin from '../services/firebase-admin.ts';
 
 
-
-
- * Authentication middleware using Firebase Admin SDK with role verification
- * @param {Array<String>} requiredRoles - Optional array of role names that are allowed to access the route
- */
 const authMiddleware = (requiredRoles = []) => {
   return async (req, res, next) => {
     try {
@@ -21,7 +15,7 @@ const authMiddleware = (requiredRoles = []) => {
       }
 
       // Verify the Firebase token
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = await admin.auth.verifyIdToken(token);
       
       // Find the user in our database using the Firebase UID
       const user = await prisma.user.findUnique({
@@ -70,6 +64,20 @@ const authMiddleware = (requiredRoles = []) => {
       next();
     } catch (error) {
       console.error('Authentication error:', error);
+      
+      // More specific error handling
+      if (error.code === 'auth/id-token-expired') {
+        return res.status(401).json({
+          success: false,
+          message: 'Token has expired'
+        });
+      } else if (error.code === 'auth/invalid-id-token') {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token format'
+        });
+      }
+      
       res.status(401).json({
         success: false,
         message: 'Token is invalid or expired'
@@ -78,4 +86,4 @@ const authMiddleware = (requiredRoles = []) => {
   };
 };
 
-module.exports = authMiddleware;
+export default authMiddleware;

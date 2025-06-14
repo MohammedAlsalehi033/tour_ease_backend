@@ -55,6 +55,7 @@ async searchNearbyListings(
   departureAfter?: Date,
   departureBefore?: Date
 ): Promise<any> {
+  console.log(minSeats, maxPrice)
   try {
     let query = `
       SELECT

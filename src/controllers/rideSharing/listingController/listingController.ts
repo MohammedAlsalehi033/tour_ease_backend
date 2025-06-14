@@ -1,9 +1,10 @@
-import ListingModel from '../../../models/rideSharing/listingModel';
-import { Request, Response } from 'express';
+import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
+import ListingModel from "../../../models/rideSharing/listingModel";
+import { Request, Response } from "express";
 
 export default class ListingController {
   private listingModel: ListingModel;
-  
+
   constructor(listingModel: ListingModel) {
     this.listingModel = listingModel;
   }
@@ -22,14 +23,20 @@ export default class ListingController {
         pricePerSeat,
         seatsAvailable,
         mediaUrls,
-        status
+        status,
       } = req.body;
 
-      if (!providerId || !startLocationText || !endLocationText || 
-          !departureTime || !seatsAvailable || pricePerSeat === undefined) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Missing required fields' 
+      if (
+        !providerId ||
+        !startLocationText ||
+        !endLocationText ||
+        !departureTime ||
+        !seatsAvailable ||
+        pricePerSeat === undefined
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields",
         });
       }
 
@@ -45,98 +52,114 @@ export default class ListingController {
         Number(pricePerSeat),
         Number(seatsAvailable),
         mediaUrls || [],
-        status || 'active'
+        status || "active"
       );
 
       return res.status(200).json({
         success: true,
-        data: newListing
+        data: newListing,
       });
     } catch (error) {
       console.error("Error in createListing controller:", error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Internal server error' 
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
       });
     }
   }
 
   async findNearbyListings(req: Request, res: Response) {
     try {
-      const { 
-        lat, 
-        lng, 
-        endLat,
-        endLng,
-        radiusKm = 30, 
-        minSeats = 1, 
-        maxPrice, 
-        departureAfter, 
-        departureBefore 
+      const {
+        lat,
+        lng,
+        endLat: queryEndLat,
+        endLng: queryEndLng,
+        radiusKm: queryRadiusKm,
+        minSeats: queryMinSeats,
+        maxPrice: queryMaxPrice,
+        departureAfter: queryDepartureAfter,
+        departureBefore: queryDepartureBefore,
       } = req.query;
 
+
+      console.log(req.query);
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
-          success: false, 
-          error: 'Valid latitude and longitude are required'
+          success: false,
+          error: "Valid latitude and longitude are required",
         });
       }
 
+      const pStartLat = Number(lat);
+      const pStartLng = Number(lng);
+      const pEndLat = queryEndLat ? Number(queryEndLat) : undefined;
+      const pEndLng = queryEndLng ? Number(queryEndLng) : undefined;
+      const pRadiusKm = queryRadiusKm ? Number(queryRadiusKm) : 300000;
+      const pMinSeats = queryMinSeats ? Number(queryMinSeats) : 1;
+      const pMaxPrice = queryMaxPrice ? Number(queryMaxPrice) : undefined;
+      const pDepartureAfter = queryDepartureAfter
+        ? new Date(queryDepartureAfter as string)
+        : undefined;
+      const pDepartureBefore = queryDepartureBefore
+        ? new Date(queryDepartureBefore as string)
+        : undefined;
+
       const results = await this.listingModel.searchNearbyListings(
-        Number(lat), 
-        Number(lng), 
-        Number(radiusKm),
-        Number(minSeats),
-        endLat ? Number(endLat) : undefined,
-        endLng ? Number(endLng) : undefined,
-        maxPrice ? Number(maxPrice) : undefined,
-        departureAfter ? new Date(departureAfter as string) : undefined,
-        departureBefore ? new Date(departureBefore as string) : undefined
+        pStartLat,
+        pStartLng,
+        pEndLat,
+        pEndLng,
+        pRadiusKm,
+        pMinSeats,
+        pMaxPrice,
+        pDepartureAfter,
+        pDepartureBefore
       );
-    
+
       return res.status(200).json({
-      success: true,
-      count: results.length,
-        data: results
+        success: true,
+        count: results.length,
+        data: results,
       });
     } catch (error) {
       console.error("Error in findNearbyListings controller:", error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Internal server error' 
-      }); 
+      return res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
     }
   }
 
   async getListingById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      
+
       if (!id || isNaN(Number(id))) {
         return res.status(400).json({
           success: false,
-          error: 'Valid listing ID is required'
+          error: "Valid listing ID is required",
         });
       }
 
       const listing = await this.listingModel.getListingById(Number(id));
-      
+
       if (!listing) {
         return res.status(404).json({
           success: false,
-          error: 'Listing not found'
+          error: "Listing not found",
         });
       }
 
       return res.status(200).json({
         success: true,
-        data: listing
+        data: listing,
       });
     } catch (error) {
       console.error("Error in getListingById controller:", error);
       return res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -145,25 +168,28 @@ export default class ListingController {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      
+
       if (!id || isNaN(Number(id))) {
         return res.status(400).json({
           success: false,
-          error: 'Valid listing ID is required'
+          error: "Valid listing ID is required",
         });
       }
 
-      const updatedListing = await this.listingModel.updateListing(Number(id), updateData);
-      
+      const updatedListing = await this.listingModel.updateListing(
+        Number(id),
+        updateData
+      );
+
       return res.status(200).json({
         success: true,
-        data: updatedListing
+        data: updatedListing,
       });
     } catch (error) {
       console.error("Error in updateListing controller:", error);
       return res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -171,25 +197,25 @@ export default class ListingController {
   async deleteListing(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      
+
       if (!id || isNaN(Number(id))) {
         return res.status(400).json({
           success: false,
-          error: 'Valid listing ID is required'
+          error: "Valid listing ID is required",
         });
       }
 
       const deletedListing = await this.listingModel.deleteListing(Number(id));
-      
+
       return res.status(200).json({
         success: true,
-        data: deletedListing
+        data: deletedListing,
       });
     } catch (error) {
       console.error("Error in deleteListing controller:", error);
       return res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -197,26 +223,28 @@ export default class ListingController {
   async getListingsByProvider(req: Request, res: Response) {
     try {
       const { providerId } = req.params;
-      
+
       if (!providerId) {
         return res.status(400).json({
           success: false,
-          error: 'Provider ID is required'
+          error: "Provider ID is required",
         });
       }
 
-      const listings = await this.listingModel.getListingsByProvider(providerId);
-      
+      const listings = await this.listingModel.getListingsByProvider(
+        providerId
+      );
+
       return res.status(200).json({
         success: true,
         count: listings.length,
-        data: listings
+        data: listings,
       });
     } catch (error) {
       console.error("Error in getListingsByProvider controller:", error);
       return res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }
@@ -224,11 +252,11 @@ export default class ListingController {
   async searchListingsByRoute(req: Request, res: Response) {
     try {
       const { startLocation, endLocation, departureDate } = req.query;
-      
+
       if (!startLocation || !endLocation) {
         return res.status(400).json({
           success: false,
-          error: 'Start and end locations are required'
+          error: "Start and end locations are required",
         });
       }
 
@@ -237,17 +265,17 @@ export default class ListingController {
         endLocation as string,
         departureDate ? new Date(departureDate as string) : undefined
       );
-      
+
       return res.status(200).json({
         success: true,
         count: listings.length,
-        data: listings
+        data: listings,
       });
     } catch (error) {
       console.error("Error in searchListingsByRoute controller:", error);
       return res.status(500).json({
         success: false,
-        error: 'Internal server error'
+        error: "Internal server error",
       });
     }
   }

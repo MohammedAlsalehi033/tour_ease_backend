@@ -21,5 +21,6 @@ router.post('/questions', questionController.createQuestion.bind(questionControl
 router.put('/questions/:id', questionController.updateQuestion.bind(questionController));
 router.delete('/questions/:id', questionController.deleteQuestion.bind(questionController));
 router.post('/questions/vote', questionController.voteQuestion.bind(questionController));
+router.post('/questions/ai', questionController.askTheAI.bind(questionController));
 
 module.exports = router;

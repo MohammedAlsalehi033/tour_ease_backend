@@ -39,41 +39,50 @@ export class transportationBookingModel {
     }
 
     try {
-      const bookings = await prisma.transportationBooking.findMany({
-        where: {
-          // A booking belongs to a provider if EITHER:
-          // 1. It's associated with a listing published by that provider
-          // OR
-          // 2. It originated from an offer sent by that provider (e.g., an offer on a traveler's request)
-          OR: [
-            {
-              listing: {
-                // Check the related listing
-                providerId: providerId,
-              },
-            },
-            {
-              offer: {
-                // Check the related offer
-                senderId: providerId, // Check if the provider sent the offer
-              },
-            },
-          ],
+     const bookings = await prisma.transportationBooking.findMany({
+  where: {
+    OR: [
+      // Case 1: The booking is for one of the provider's own listings.
+      // This part is correct.
+      {
+        listing: {
+          providerId: providerId,
         },
-        // Include related data often needed by providers:
-        include: {
-          listing: true, // Details of the listing (if booking came from a listing)
-          request: true, // Details of the request (if booking came from a request via an offer)
-          traveler: {
-            // Details of the traveler who made the booking
-            select: { id: true, username: true, mediaUrls: true }, // Select specific user fields
+      },
+      
+      // Case 2: The booking resulted from an offer the provider made
+      // on a traveler's RIDE REQUEST. This is the corrected logic.
+      {
+        AND: [
+          {
+            offer: {
+              senderId: providerId, // The provider sent the offer...
+            },
           },
-          offer: true, // Details of the offer (if applicable)
-        },
-        orderBy: {
-          createdAt: "desc", // Show newest bookings first
-        },
-      });
+          {
+            // ...AND the booking is for a request, not another listing.
+            // This is the crucial check to ensure the provider's role.
+            transportationRequestId: {
+              not: null,
+            },
+          },
+        ],
+      },
+    ],
+  },
+  // Your includes and ordering remain the same:
+  include: {
+    listing: true, 
+    request: true, 
+    traveler: {
+      select: { id: true, username: true, mediaUrls: true }, 
+    },
+    offer: true, 
+  },
+  orderBy: {
+    createdAt: "desc", 
+  },
+});
 
       return bookings;
     } catch (e) {

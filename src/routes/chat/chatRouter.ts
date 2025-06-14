@@ -3,12 +3,12 @@ import { PrismaMessageModel } from "../../models/chat/chatModel";
 import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Server as SocketIOServer } from "socket.io";
 import express from 'express';
+import authMiddleware from "../../middleware/authMiddleware";
 
 // Export a function that takes the io instance and connectedUsers Map and returns the router
 export const createChatRouter = (io, connectedUsers) => {
   const router = express.Router();
   
-  // Initialize controller with the Socket.IO instance and connectedUsers Map
   const messageController = new MessageController(
     new PrismaMessageModel(), 
     new FileUploaderForS3(),

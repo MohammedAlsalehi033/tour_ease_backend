@@ -32,6 +32,8 @@ export default class RequestController {
       }
       console.log(startLocationLat, startLocationLng, endLocationLat, endLocationLng);
 
+
+
       const newRequest = await this.requestModel.createRequest(
         travelerId,
         startLocationText,
@@ -40,7 +42,7 @@ export default class RequestController {
         startLocationLng,
         endLocationLat,
         endLocationLng,
-        new Date(departureTime),
+        departureTime instanceof Date ? departureTime :new Date(departureTime),
         Number(seatsNeeded),
         Number(budget)
       );
