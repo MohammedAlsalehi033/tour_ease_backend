@@ -299,7 +299,7 @@ class QuestionController {
 
   } catch (error) {
     console.error('Error asking the AI:', error);
-    res.status(500).json({ error: 'Failed to get AI response' });
+    res.status(500).json({ error: `Failed to get AI response ${error.message}` });
   }
 }
 
