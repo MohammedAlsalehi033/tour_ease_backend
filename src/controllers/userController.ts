@@ -3,9 +3,11 @@ import { UserRole } from "../Types/myEnum";
 import { FileUploaderForS3 } from "../utils/FileUploader";
 export default class UserController {
     private model: UserModel;
+    private fileUploader: FileUploaderForS3;
 
-    constructor(model: UserModel) {
+    constructor(model: UserModel, fileUploader: FileUploaderForS3) {
         this.model = model;
+        this.fileUploader = new FileUploaderForS3();
     }
 
 
@@ -17,12 +19,20 @@ export default class UserController {
 
             const user = await this.model.getUserById(id);
 
-            if (!user) {
+            if(!user) {
                 return res.status(404).json({
                     success: false,
                     message: 'User not found',
                 });
             }
+
+            if (user.mediaUrls.length > 0) {
+                // Assuming the first mediaUrl is the profile picture
+            const signedUrl = await this.fileUploader.myGetSignedUrl(user.mediaUrls[0]);
+            
+                user.mediaUrls = [signedUrl];
+            }
+            
 
             res.json({
                 success: true,
