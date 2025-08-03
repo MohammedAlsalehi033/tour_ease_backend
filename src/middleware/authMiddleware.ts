@@ -14,10 +14,8 @@ const authMiddleware = (requiredRoles = []) => {
         });
       }
 
-      // Verify the Firebase token
       const decodedToken = await admin.auth.verifyIdToken(token);
       
-      // Find the user in our database using the Firebase UID
       const user = await prisma.user.findUnique({
         where: { id: decodedToken.uid },
         include: {
@@ -44,7 +42,6 @@ const authMiddleware = (requiredRoles = []) => {
         });
       }
 
-      // If roles are required, verify that the user has at least one of the required roles
       if (requiredRoles.length > 0) {
         const userRoleNames = user.roles.map(userRole => userRole.role.roleName);
         const hasRequiredRole = requiredRoles.some(role => userRoleNames.includes(role));
@@ -57,15 +54,12 @@ const authMiddleware = (requiredRoles = []) => {
         }
       }
 
-      // Attach the user to the request object
       req.user = user;
       
-      // Continue to the next middleware or route handler
       next();
     } catch (error) {
       console.error('Authentication error:', error);
       
-      // More specific error handling
       if (error.code === 'auth/id-token-expired') {
         return res.status(401).json({
           success: false,

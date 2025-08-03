@@ -33,20 +33,15 @@ export class MessageController {
       const userId = req.params.userId;
       const chatPartners = await this.messageModel.getChatsByUserId(userId);
       
-      // Add online status and signed URLs to chat partners
       const chatPartnersWithDetails = await Promise.all(
         chatPartners.map(async (user) => {
-          // Check if the user is online
           const isOnline = this.isUserConnected(user.id);
-          
-          // Sign media URLs if present
-          if (user.mediaUrls?.length > 0) {
-            const signedUrls = await Promise.all(
-              user.mediaUrls.map((url) => this.fileUploader.myGetSignedUrl(url))
-            );
+          if (user.avatarUrl !== '') {
+
+               const signedUrl =  await this.fileUploader.myGetSignedUrl(user.avatarUrl)
             return { 
               ...user, 
-              mediaUrls: signedUrls,
+              avatarUrl: signedUrl,
               isOnline
             };
           }

@@ -48,7 +48,6 @@ class QuestionController {
                 const signedUrls = await Promise.all(
 
                     question.user.mediaUrls.map(  (url)=>{
-                      console.log(url)
                       return this.fileUploader.myGetSignedUrl(url)
 
                     }
