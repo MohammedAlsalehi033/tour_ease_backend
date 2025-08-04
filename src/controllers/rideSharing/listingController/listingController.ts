@@ -1,12 +1,14 @@
 import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import ListingModel from "../../../models/rideSharing/listingModel";
 import { Request, Response } from "express";
+import { FileUploaderForS3 } from '../../../utils/FileUploader';
 
 export default class ListingController {
   private listingModel: ListingModel;
-
-  constructor(listingModel: ListingModel) {
+  private fileUploaderForS3: FileUploaderForS3;
+  constructor(listingModel: ListingModel , fileUploaderForS3: FileUploaderForS3) {
     this.listingModel = listingModel;
+    this.fileUploaderForS3 = new FileUploaderForS3();
   }
 
   async createListing(req: Request, res: Response) {
@@ -83,7 +85,8 @@ export default class ListingController {
       } = req.query;
 
 
-      console.log(req.query);
+
+    
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
           success: false,
@@ -117,10 +120,42 @@ export default class ListingController {
         pDepartureBefore
       );
 
+
+      const resultWithSignedUrls = await Promise.all(
+        results.map(async (listing) => {
+          console.log(listing.provider.vehicleMediaUrls && listing.provider.vehicleMediaUrls.length > 0)
+          if (listing.provider.vehicleMediaUrls && listing.provider.vehicleMediaUrls.length > 0) {
+            const licenseMmediaUrlsSignedUrls = await Promise.all(
+              listing.provider.licenseMmediaUrls.map((url) => 
+                this.fileUploaderForS3.myGetSignedUrl(url)
+              )
+            );
+            const vehicleMediaUrlsSignedUrls = await Promise.all(
+              listing.provider.vehicleMediaUrls.map((url) =>
+                this.fileUploaderForS3.myGetSignedUrl(url)
+              )
+            );
+
+            console.log(vehicleMediaUrlsSignedUrls, licenseMmediaUrlsSignedUrls)
+            return {
+              ...listing,
+              provider: {
+                ...listing.provider,
+                licenseMmediaUrls: licenseMmediaUrlsSignedUrls,
+                vehicleMediaUrls: vehicleMediaUrlsSignedUrls,
+              },
+            };
+          }
+          return listing;
+        })
+      )
+
+      
+      
       return res.status(200).json({
         success: true,
         count: results.length,
-        data: results,
+        data: resultWithSignedUrls,
       });
     } catch (error) {
       console.error("Error in findNearbyListings controller:", error);
