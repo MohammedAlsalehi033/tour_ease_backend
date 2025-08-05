@@ -65,6 +65,7 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
                 success: false,
                 message: error.message
             });
+            
         }
     }
 
