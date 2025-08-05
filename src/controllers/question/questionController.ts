@@ -13,7 +13,7 @@ class QuestionController {
     this.questionModel = questionModel;
     this.fileUploader = fileUploader;
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI("REMOVED_API_KEY"); // Replace with your actual API key
     
      this.model = genAI.getGenerativeModel({
         model: "gemini-1.5-flash",
@@ -48,7 +48,6 @@ class QuestionController {
                 const signedUrls = await Promise.all(
 
                     question.user.mediaUrls.map(  (url)=>{
-                      console.log(url)
                       return this.fileUploader.myGetSignedUrl(url)
 
                     }
@@ -299,7 +298,7 @@ class QuestionController {
 
   } catch (error) {
     console.error('Error asking the AI:', error);
-    res.status(500).json({ error: 'Failed to get AI response' });
+    res.status(500).json({ error: `Failed to get AI response ${error.message}` });
   }
 }
 

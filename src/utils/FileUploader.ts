@@ -48,9 +48,7 @@ export class FileUploaderForS3 extends FileUploader {
     fileType: string,
     userName: string
   ): Promise<FileUploadResult> {
-    console.log(this.bucket)
     const extension = file.originalname.split(".").pop();
-    console.log(file.originalname);
     const key = `uploads/${userName}/${Date.now()}-${fileType}.${extension}`;
     const uploadCommand = new PutObjectCommand({
       Bucket: this.bucket,

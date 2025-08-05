@@ -25,7 +25,7 @@ const upload = multer({
 
  const router = express.Router();
 const fileUploaderForS3 = new FileUploaderForS3(); 
-const userModel = new UserController(new UserModel);
+const userModel = new UserController(new UserModel , fileUploaderForS3);
 const transportationProviderController = new TransportationProviderController(new TransportationProviderModel, fileUploaderForS3);
 
 router.post('/createTransportationProvider', upload.fields([

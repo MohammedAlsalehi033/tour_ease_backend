@@ -5,7 +5,9 @@ import multer from 'multer';
 
 import express from 'express';
 const router = express.Router();
-const userController = new UserController(new UserModel);
+import { FileUploaderForS3 } from "../utils/FileUploader";
+const fileUploaderForS3 = new FileUploaderForS3();
+const userController = new UserController(new UserModel, fileUploaderForS3);
 
 
 const upload = multer({ 
