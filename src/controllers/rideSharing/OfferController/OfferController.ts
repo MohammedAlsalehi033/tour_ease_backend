@@ -196,7 +196,6 @@ export class OfferController {
     }
   }
 
-  // Get offers for a specific listing
   async getOffersForListing(req, res) {
     try {
       const listingId = parseInt(req.params.listingId);
@@ -219,7 +218,6 @@ export class OfferController {
     }
   }
 
-  // Get offers for a specific request
   async getOffersForRequest(req, res) {
     try {
       const requestId = parseInt(req.params.requestId);

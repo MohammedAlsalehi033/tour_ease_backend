@@ -1,15 +1,17 @@
 // 1. Correct the import statement for the Google Gemini SDK
 import { GoogleGenerativeAI } from "@google/generative-ai"; 
 import { FileUploaderForS3 } from "../../utils/FileUploader";
+import { PrismaQuestionModel } from "../../models/question/questionModel";
+import { P } from "@faker-js/faker/dist/airline-CBNP41sR";
 
 // Note: There is no need to import 'OpenAI' if you are using Gemini.
 
 class QuestionController {
-  private questionModel;
+  private questionModel : PrismaQuestionModel;
   private fileUploader: FileUploaderForS3;
   private model: any; 
 
-  constructor(questionModel, fileUploader: FileUploaderForS3) {
+  constructor(questionModel : PrismaQuestionModel, fileUploader: FileUploaderForS3) {
     this.questionModel = questionModel;
     this.fileUploader = fileUploader;
 
@@ -83,6 +85,12 @@ class QuestionController {
     try {
       const questionId = req.params.id;
       const question = await this.questionModel.getItemById(questionId);
+
+      const signedUrls = await Promise.all(
+        question?.user?.mediaUrls?.length > 0
+          ? question.user.mediaUrls.map((url) => this.fileUploader.myGetSignedUrl(url))
+          : []
+      );
       
       if (!question) {
         return res.status(404).json({
@@ -93,7 +101,7 @@ class QuestionController {
       
       res.status(200).json({
         success: true,
-        data: question
+        data: {...question, user: { ...question.user, mediaUrls: signedUrls } }
       });
     } catch (error) {
       res.status(error.message === 'Question not found' ? 404 : 500).json({
