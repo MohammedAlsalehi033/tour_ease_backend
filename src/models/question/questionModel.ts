@@ -158,7 +158,6 @@ export class PrismaQuestionModel extends BaseModel<any> {
 
       const desiredType = isUpvote ? "UPVOTE" : "DOWNVOTE";
       const isSameVote = existingVote?.type === desiredType;
-      const isOppositeVote = existingVote && existingVote.type !== desiredType;
 
       let upvotesChange = 0;
       let downvotesChange = 0;

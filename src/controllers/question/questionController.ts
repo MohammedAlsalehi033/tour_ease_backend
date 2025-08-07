@@ -249,14 +249,15 @@ class QuestionController {
   
   async voteQuestion(req, res) {
     try {
-      const { id , userId , isUpvote } = req.body;
+      const { id , userId , isUpVote: isUpVote }: { id: number; userId: string; isUpVote: boolean; } = req.body;
+      console.log(id,userId,isUpVote)
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
       const updatedQuestion = await this.questionModel.voteQuestion(
         Number(id),
-        isUpvote,
+        isUpVote,
         userId
       );
 
