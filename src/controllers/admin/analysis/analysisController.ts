@@ -217,8 +217,9 @@ export class AnalyticsController {
                  this.analyticsModel.getQuestionCountOverTime(interval, filters),
                  this.analyticsModel.getReviewCountOverTime(interval, filters),
                  this.analyticsModel.getOfferActivityByStatus(filters),
-                 this.analyticsModel.getCommentCountsByContentType(filters),
-                 this.analyticsModel.getVoteDistributionByContentType(filters)
+                //  this.analyticsModel.getCommentCountsByContentType(filters),
+                //  this.analyticsModel.getVoteDistributionByContentType(filters)
+                5,6
              ]);
 
             res.status(200).json({
@@ -255,7 +256,8 @@ export class AnalyticsController {
                 this.analyticsModel.getAverageRatingOverall(filters),
                 this.analyticsModel.getAverageRatingByType(filters),
                 this.analyticsModel.getRatingDistribution({ ...filters, reviewableType }),
-                this.analyticsModel.getRatingTrendsOverTime('month', filters)
+                5
+                // this.analyticsModel.getRatingTrendsOverTime('month', filters)
             ]);
 
             res.status(200).json({
@@ -290,8 +292,9 @@ export class AnalyticsController {
              ] = await Promise.all([
                  this.analyticsModel.getTransportationProviderCountByStatus(filters),
                  this.analyticsModel.getAccommodationProviderCount(filters),
-                 this.analyticsModel.getProviderApplicationsOverTime(interval, filters),
-                 this.analyticsModel.getTopPerformingProviders(10, filters)
+                 5,66
+                //  this.analyticsModel.getProviderApplicationsOverTime(interval, filters),
+                //  this.analyticsModel.getTopPerformingProviders(10, filters)
              ]);
 
             res.status(200).json({

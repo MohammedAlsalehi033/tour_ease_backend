@@ -64,6 +64,7 @@ export class AnalyticsModel {
 
     async getUserRegistrationsOverTime(interval: 'day' | 'week' | 'month' = 'day', filters: DateRangeFilter = {}): Promise<CountOverTime[]> {
 
+        console.log(filters)
 
         const startDate = filters.startDate?.toISOString();
         const endDate = filters.endDate?.toISOString();
@@ -73,8 +74,8 @@ export class AnalyticsModel {
         const result: any[] = await prisma.$queryRaw`
             SELECT DATE_TRUNC(${dateTruncInterval}, "createdAt")::DATE as date, COUNT(id)::INTEGER as count
             FROM "User"
-            WHERE ("createdAt" >= ${startDate}::TIMESTAMP OR ${startDate} IS NULL)
-              AND ("createdAt" <= ${endDate}::TIMESTAMP OR ${endDate} IS NULL)
+            WHERE "createdAt" >= COALESCE(${startDate}::TIMESTAMP, '1000-01-01'::TIMESTAMP)
+            AND "createdAt" <= COALESCE(${endDate}::TIMESTAMP, '9999-12-31'::TIMESTAMP)
             GROUP BY date
             ORDER BY date ASC;
         `;
@@ -265,8 +266,8 @@ export class AnalyticsModel {
         const result: any[] = await prisma.$queryRaw`
             SELECT DATE_TRUNC(${dateTruncInterval}, "createdAt")::DATE as date, COUNT(id)::INTEGER as count
             FROM "Question"
-            WHERE ("createdAt" >= ${startDate}::TIMESTAMP OR ${startDate} IS NULL)
-              AND ("createdAt" <= ${endDate}::TIMESTAMP OR ${endDate} IS NULL)
+            WHERE "createdAt" >= COALESCE(${startDate}::TIMESTAMP, '1000-01-01'::TIMESTAMP)
+            AND "createdAt" <= COALESCE(${endDate}::TIMESTAMP, '9999-12-31'::TIMESTAMP)
             GROUP BY date
             ORDER BY date ASC;
         `;
@@ -282,8 +283,8 @@ export class AnalyticsModel {
         const result: any[] = await prisma.$queryRaw`
             SELECT DATE_TRUNC(${dateTruncInterval}, "createdAt")::DATE as date, COUNT(id)::INTEGER as count
             FROM "Review"
-            WHERE ("createdAt" >= ${startDate}::TIMESTAMP OR ${startDate} IS NULL)
-              AND ("createdAt" <= ${endDate}::TIMESTAMP OR ${endDate} IS NULL)
+         where  "createdAt" >= COALESCE(${startDate}::TIMESTAMP, '1000-01-01'::TIMESTAMP)
+            AND "createdAt" <= COALESCE(${endDate}::TIMESTAMP, '9999-12-31'::TIMESTAMP)
             GROUP BY date
             ORDER BY date ASC;
         `;
