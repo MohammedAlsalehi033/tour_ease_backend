@@ -105,8 +105,12 @@ export class AdminModel {
      }
 
 
-    async getTransportationProvidersByStatus(status = "pending") {
+    async getTransportationProvidersByStatus(status = "pending", page : number, pageSize : number) {
+        const skip = (page - 1) * pageSize;
+
         return await prisma.transportationProvider.findMany({
+        skip: skip,
+        take: pageSize,
             where: {
                 accountStatus: status
             },
@@ -117,6 +121,7 @@ export class AdminModel {
                 createdAt: 'asc'
             }
         });
+    
     }
 
   

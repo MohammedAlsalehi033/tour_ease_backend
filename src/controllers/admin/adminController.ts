@@ -46,8 +46,9 @@ export class AdminController {
 
     async getPendingTransportationProviders(req: Request, res: Response) {
         try {
-            const status = (req.query.status as string) || "pending";
-            const providers = await this.adminModel.getTransportationProvidersByStatus(status);
+            const {status, page, pageSize} = req.query;
+
+            const providers = await this.adminModel.getTransportationProvidersByStatus(status , page, pageSize);
 
             const providersWithSignedUrls = await Promise.all(
                 providers.map(async (provider) => {
