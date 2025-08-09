@@ -50,12 +50,11 @@ async searchNearbyListings(
   endLat?: number,
   endLng?: number,
   radiusKm: number = 100000,
-  minSeats: number = 1,
+  minSeats: number = 0,
   maxPrice?: number,
   departureAfter?: Date,
   departureBefore?: Date
 ): Promise<any> {
-  console.log(minSeats, maxPrice)
   try {
     let query = `
       SELECT
