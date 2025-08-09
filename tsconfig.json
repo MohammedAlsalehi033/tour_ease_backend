@@ -9,8 +9,6 @@
     "noImplicitAny": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-        "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "forceConsistentCasingInFileNames": true,
     "allowImportingTsExtensions": true,
       "resolveJsonModule": true,

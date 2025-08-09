@@ -1,8 +1,6 @@
 import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
-import { container } from "tsyringe";
-import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
 
 export class OfferController {
   private offerModel: PrismaOfferModel;
@@ -116,8 +114,7 @@ export class OfferController {
     try {
       const offerId = parseInt(req.params.id);
       const result = await this.offerModel.acceptOffer(offerId);
-      
-        
+
       res.status(200).json({
         success: true,
         data: {
