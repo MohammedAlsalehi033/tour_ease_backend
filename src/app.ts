@@ -12,7 +12,14 @@ const adminRouter = require("./routes/admin/adminRoute");
 const adminAnalysisRouter = require("./routes/admin/analysis/analysisRoute");
 const transportationBookingRouter = require("./routes/rideSharing/rideBookingRoute/rideBookingRoute");
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
+const AIPlannerRoute = require('./routes/planner/plannerRouter');
+
+
 const { createChatRouter } = require("./routes/chat/chatRouter");
+
+
+
+
 import { PrismaClient } from '@prisma/client';
 require('dotenv').config();
 const { initializeApp } = require('firebase-admin/app');
@@ -87,7 +94,7 @@ app.use('/api', rideSharingListingRoutes);
 app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
-
+app.use('/api', AIPlannerRoute);
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
 app.use('/api/admin', adminAnalysisRouter);
