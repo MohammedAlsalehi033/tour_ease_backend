@@ -1,3 +1,4 @@
+import 'reflect-metadata'; 
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -12,11 +13,21 @@ const adminRouter = require("./routes/admin/adminRoute");
 const adminAnalysisRouter = require("./routes/admin/analysis/analysisRoute");
 const transportationBookingRouter = require("./routes/rideSharing/rideBookingRoute/rideBookingRoute");
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
+const AIPlannerRoute = require('./routes/planner/plannerRouter');
+
+
 const { createChatRouter } = require("./routes/chat/chatRouter");
+
+
+
+
 import { PrismaClient } from '@prisma/client';
+import admin from "./services/firebase-admin"
+import { FirebaseNotifier } from './utils/firebaseNotficationsManger';
+import { container } from './container';
 require('dotenv').config();
 const { initializeApp } = require('firebase-admin/app');
-var admin = require("firebase-admin");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -87,7 +98,7 @@ app.use('/api', rideSharingListingRoutes);
 app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
-
+app.use('/api', AIPlannerRoute);
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
 app.use('/api/admin', adminAnalysisRouter);
@@ -96,10 +107,13 @@ app.get('/test-socket', (req, res) => {
   res.sendFile(__dirname + '/test-chat.html');
 });
 
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Welcome to the API'
-  });
+app.get('/', async (req, res) => {
+  const firebaseNotifier = container.resolve(FirebaseNotifier);
+      await firebaseNotifier.sendNotification("fdxrLh7kfe4QQDJxRJ9VjV:APA91bFHuaAt-ErI-kI-FMAMN5G0dSCgvlTw07Us5UHXTX84BBbHc-q33_kcAx-sG369LbatmWoESnK1z_L3QAvH4epfg_cy99UGHYZB65tWbf4QxeCWOCE", {
+        title: "sdafsadf",
+        body: "asdfsdaf"
+      })
+  res.send('Notification sent! Check your device.');
 });
 
 
