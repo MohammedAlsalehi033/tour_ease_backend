@@ -1,6 +1,8 @@
 import { PrismaMessageModel } from "../../models/chat/chatModel";
 import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Server as SocketIOServer } from "socket.io";
+import { container } from 'tsyringe';
+import { FirebaseNotifier } from "../../utils/firebaseNotficationsManger";
 
 export class MessageController {
   private messageModel: PrismaMessageModel;
@@ -117,9 +119,16 @@ export class MessageController {
       );
       
       const receiverSocketId = this.getUserSocketId(receiverId);
-      console.log(receiverSocketId)
       if (receiverSocketId) {
         this.io.to(receiverSocketId).emit('new_message', newMessage);
+      }
+      else{
+
+        const notificationsManger = container.resolve(FirebaseNotifier)
+        notificationsManger.sendNotification(receiverId, {
+          title: "New Message",
+          body: `You have received a new message from user`,
+        });
       }
       
       res.status(201).json({

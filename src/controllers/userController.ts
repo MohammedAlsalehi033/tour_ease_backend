@@ -165,4 +165,38 @@ export default class UserController {
             });
         }
     }
+
+    async addFCMTokenToUser (req,res){
+        try {
+            const userId = req.params.id;
+            const { fcmToken } = req.body;
+
+            console.log(req.body)
+
+            if (!fcmToken || !userId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'FCM token and user ID are required',
+                });
+            }
+
+            const updatedUser = await this.model.addFCMToken(userId, fcmToken);
+
+            res.json({
+                success: true,
+                message: 'FCM token added successfully',
+                data: {
+                    id: updatedUser.id,
+                    username: updatedUser.username,
+                    fcmTokens: updatedUser.fcmTokens,
+                },
+            });
+        } catch (error) {
+            console.error('Error adding FCM token:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to add FCM token',
+            });
+        }
+    }
 }

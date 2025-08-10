@@ -316,4 +316,24 @@ async getAllUsers(
       throw error;
     }
   }
+
+  async addFCMToken(userId: string, fcmToken: string): Promise<User> {
+    try {
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          fcmTokens: {
+            push: fcmToken,
+          },
+        },
+      });
+
+      return updatedUser;
+    } catch (error) {
+      console.error('Error adding FCM token:', error);
+      throw error;
+    }
+  }
 }
