@@ -24,7 +24,10 @@ export interface StatusFilter {
 }
 
 // Combined filter type
-export  interface AnalyticsFilters extends DateRangeFilter, LocationFilter, UserTypeFilter, StatusFilter {}
+export  interface AnalyticsFilters extends DateRangeFilter, LocationFilter, UserTypeFilter, StatusFilter {
+      reviewableType?: string; // Add this line
+  userType?: string; 
+}
 
 // Define return types for clarity (examples)
 export  interface CountOverTime {

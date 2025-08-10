@@ -1,5 +1,5 @@
-import { prisma } from '../utils/prismaClient.ts';
-import admin from '../services/firebase-admin.ts';
+import { prisma } from '../utils/prismaClient';
+import admin from '../services/firebase-admin';
 
 
 const authMiddleware = (requiredRoles = []) => {
