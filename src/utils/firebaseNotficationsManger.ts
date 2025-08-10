@@ -1,5 +1,7 @@
 import { injectable } from 'tsyringe';
 import firebaseServices from '../services/firebase-admin';
+import { PrismaClient } from '@prisma/client';
+import { prisma } from './prismaClient';
 const { db } = firebaseServices;
 export interface NotificationPayload {
   title: string;
@@ -13,24 +15,23 @@ export class FirebaseNotifier {
 
 
 
-  public async sendNotification(fcmToken: string, payload: NotificationPayload): Promise<void> {
-    if (!fcmToken) {
-      console.error("FCM token was null or empty. Aborting send.");
-      return;
-    }
+  public async sendNotification(userId: string, payload: NotificationPayload): Promise<void> {
+    console.log("this function is activiated")
+    const fcmTokens = await this.getFCMFromUserId(userId) ?? [];
+    
 
-    const message = {
+
+
+    const messages  = fcmTokens.map(token => ({
       notification: {
         title: payload.title,
         body: payload.body,
       },
-      token: fcmToken,
-    };
+      token: token,
+    }));
 
     try {
-      console.log(`Attempting to send notification to token: ${fcmToken}`);
-      const response = await messaging.send(message);
-      console.log('Successfully sent message:', response);
+      const response = await messaging.sendEach(messages);
     } catch (error) {
       console.error('Error sending Firebase notification:', error);
       
@@ -40,4 +41,16 @@ export class FirebaseNotifier {
       }
     }
   }
+
+
+private async getFCMFromUserId(userId: string): Promise<string[]> {
+  const userFCM = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { fcmTokens: true },
+  });
+
+  const allTokens = userFCM?.fcmTokens || [];
+
+  return [...new Set(allTokens)] as string[];
+}
 }
