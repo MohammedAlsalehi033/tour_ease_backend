@@ -38,7 +38,7 @@ export default class UserController {
                 success: true,
                 data: user,
             });
-        } catch (error) {
+        } catch (error : any) {
             res.status(500).json({
                 success: false,
                 message: error.message,
@@ -52,7 +52,7 @@ export default class UserController {
             const page = parseInt(req.query.page) || 1;
             const pageSize = parseInt(req.query.pageSize) || 10;
             
-            const filter = {};
+            const filter : any = {};
             if (req.query.username) filter.username = req.query.username;
             if (req.query.email) filter.email = req.query.email;
             if (req.query.accountStatus) filter.accountStatus = req.query.accountStatus;
@@ -70,7 +70,7 @@ export default class UserController {
                     totalPages: result.totalPages
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error("Error in getAllUsers controller:", error);
             res.status(500).json({
                 success: false,
@@ -87,7 +87,7 @@ export default class UserController {
                 success: true,
                 data: newUser
             });
-        } catch (error) {
+        } catch (error : any) {
             res.status(500).json({
                 success: false,
                 message: error.message
@@ -103,7 +103,7 @@ export default class UserController {
                 success: true,
                 data: role
             });
-        } catch (error) {
+        } catch (error : any) {
             res.status(500).json({
                 success: false,
                 message: error.message
@@ -120,7 +120,7 @@ export default class UserController {
                 data: "role updated"
             });
         }
-        catch (error) {
+        catch (error : any) {
             res.status(500).json({
                 success: false,
                 message: error.message
@@ -157,7 +157,7 @@ export default class UserController {
                     mediaUrls: signedUrl,
                 },
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error('Error updating profile picture:', error);
             res.status(500).json({
                 success: false,
@@ -191,7 +191,7 @@ export default class UserController {
                     fcmTokens: updatedUser.fcmTokens,
                 },
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error('Error adding FCM token:', error);
             res.status(500).json({
                 success: false,

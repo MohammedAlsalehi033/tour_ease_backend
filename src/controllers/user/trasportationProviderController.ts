@@ -18,7 +18,7 @@ export class TransportationProviderController {
         const { licenseMedia, vehicleMedia } = req.files;
 
         try {
-        let newTransportationProvider = await this.transportationProviderModel.getUserById(id);
+        let newTransportationProvider : any = await this.transportationProviderModel.getUserById(id);
         
         if(!newTransportationProvider) {
             throw new Error(`User with id ${id} does not exist`);
@@ -51,7 +51,7 @@ export class TransportationProviderController {
             success: true,
             data: newTransportationProvider,})
 
-    }catch (error) {
+    }catch (error : any) {
         res.status(500).json({
             success: false,
             message: error.message
@@ -68,7 +68,7 @@ export class TransportationProviderController {
                 return res.status(404).json({ success: false, message: 'Transportation provider not found' });
             }
             return res.status(200).json({ success: true, data: transportationProvider });
-        } catch (error) {
+        } catch (error : any) {
             return res.status(500).json({ success: false, message: error.message });
         }
     }

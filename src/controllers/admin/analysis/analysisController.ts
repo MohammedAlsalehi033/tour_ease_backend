@@ -78,7 +78,7 @@ export class AnalyticsController {
                 success: true,
                 data: overviewData
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error("Error fetching analytics overview:", error);
             res.status(500).json({
                 success: false,
@@ -111,7 +111,7 @@ export class AnalyticsController {
                     countByStatus
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
              console.error("Error fetching user analytics:", error);
              res.status(500).json({
                 success: false,
@@ -137,7 +137,8 @@ export class AnalyticsController {
                 this.analyticsModel.getTransportationBookingValueOverTime(interval, filters),
                 this.analyticsModel.getAverageTransportationBookingValue(filters),
                 this.analyticsModel.getTransportationBookingStatusDistribution(filters),
-                this.analyticsModel.getPopularTransportationRoutes(filters)
+                this.analyticsModel.getTransportationBookingStatusDistribution(filters),
+                // this.analyticsModel.getPopularTransportationRoutes(filters)
             ]);
 
             res.status(200).json({
@@ -150,7 +151,7 @@ export class AnalyticsController {
                     popularRoutes
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error("Error fetching transportation booking analytics:", error);
              res.status(500).json({
                 success: false,
@@ -176,9 +177,11 @@ export class AnalyticsController {
                 this.analyticsModel.getAccommodationBookingVolumeOverTime(interval, filters),
                 this.analyticsModel.getAccommodationBookingValueOverTime(interval, filters),
                 this.analyticsModel.getAverageAccommodationBookingValue(filters),
+                this.analyticsModel.getAverageAccommodationBookingValue(filters),
+                this.analyticsModel.getAverageAccommodationBookingValue(filters),
                 this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                this.analyticsModel.getPopularAccommodationLocations(filters),
-                this.analyticsModel.getPopularAccommodationRoomTypes(filters)
+                // this.analyticsModel.getPopularAccommodationLocations(filters),
+                // this.analyticsModel.getPopularAccommodationRoomTypes(filters)
             ]);
 
             res.status(200).json({
@@ -192,7 +195,7 @@ export class AnalyticsController {
                     popularRoomTypes
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
              console.error("Error fetching accommodation booking analytics:", error);
              res.status(500).json({
                 success: false,
@@ -232,7 +235,7 @@ export class AnalyticsController {
                     voteDistribution
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
              console.error("Error fetching content analytics:", error);
              res.status(500).json({
                 success: false,
@@ -269,7 +272,7 @@ export class AnalyticsController {
                     ratingTrends
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error("Error fetching rating analytics:", error);
              res.status(500).json({
                 success: false,
@@ -306,7 +309,7 @@ export class AnalyticsController {
                     topPerformingProviders
                 }
             });
-        } catch (error) {
+        } catch (error : any) {
              console.error("Error fetching provider analytics:", error);
              res.status(500).json({
                 success: false,
@@ -363,7 +366,8 @@ export class AnalyticsController {
                         this.analyticsModel.getUserRegistrationsOverTime(interval, filters),
                         this.analyticsModel.getUserCountByRole(filters),
                         this.analyticsModel.getUserCountByStatus(filters),
-                        this.analyticsModel.getActiveUsersOverTime(interval, filters)
+                        this.analyticsModel.getUserCountByStatus(filters),
+                        // this.analyticsModel.getActiveUsersOverTime(interval, filters)
                     ]);
                     
                     reportData = {
@@ -388,8 +392,9 @@ export class AnalyticsController {
                         this.analyticsModel.getTransportationBookingVolumeOverTime(transInterval, filters),
                         this.analyticsModel.getTransportationBookingValueOverTime(transInterval, filters),
                         this.analyticsModel.getAverageTransportationBookingValue(filters),
+                        this.analyticsModel.getAverageTransportationBookingValue(filters),
                         this.analyticsModel.getTransportationBookingStatusDistribution(filters),
-                        this.analyticsModel.getPopularTransportationRoutes(filters)
+                        // this.analyticsModel.getPopularTransportationRoutes(filters)
                     ]);
                     
                     reportData = {
@@ -417,8 +422,10 @@ export class AnalyticsController {
                         this.analyticsModel.getAccommodationBookingValueOverTime(accInterval, filters),
                         this.analyticsModel.getAverageAccommodationBookingValue(filters),
                         this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                        this.analyticsModel.getPopularAccommodationLocations(filters),
-                        this.analyticsModel.getPopularAccommodationRoomTypes(filters)
+                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
+                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
+                        // this.analyticsModel.getPopularAccommodationLocations(filters),
+                        // this.analyticsModel.getPopularAccommodationRoomTypes(filters)
                     ]);
                     
                     reportData = {
@@ -444,9 +451,11 @@ export class AnalyticsController {
                     ] = await Promise.all([
                         this.analyticsModel.getQuestionCountOverTime(contentInterval, filters),
                         this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
+                        this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
+                        this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
                         this.analyticsModel.getOfferActivityByStatus(filters),
-                        this.analyticsModel.getCommentCountsByContentType(filters),
-                        this.analyticsModel.getVoteDistributionByContentType(filters)
+                        // this.analyticsModel.getCommentCountsByContentType(filters),
+                        // this.analyticsModel.getVoteDistributionByContentType(filters)
                     ]);
                     
                     reportData = {
@@ -516,7 +525,7 @@ export class AnalyticsController {
                     res.setHeader('Content-Type', 'application/pdf');
                     res.setHeader('Content-Disposition', `attachment; filename="analytics_report_${reportType}.pdf"`);
                     res.send(pdfBuffer);
-                } catch (error) {
+                } catch (error : any) {
                     // If PDF generation fails due to missing dependency, provide a helpful message
                     if (error instanceof Error && error.message.includes('pdfkit')) {
                         return res.status(500).json({ 
@@ -535,7 +544,7 @@ export class AnalyticsController {
                     res.setHeader('Content-Type', 'text/csv');
                     res.setHeader('Content-Disposition', `attachment; filename="analytics_report_${reportType}.csv"`);
                     res.send(csvData);
-                } catch (error) {
+                } catch (error : any) {
                     // If CSV generation fails due to missing dependency, provide a helpful message
                     if (error instanceof Error && error.message.includes('json2csv')) {
                         return res.status(500).json({ 
@@ -552,7 +561,7 @@ export class AnalyticsController {
                 res.status(200).json({ success: true, data: reportData });
             }
 
-        } catch (error) {
+        } catch (error : any) {
             console.error(`Error exporting analytics report (${req.query.reportType} / ${req.query.format}):`, error);
             res.status(500).json({
                 success: false,
@@ -568,7 +577,7 @@ export class AnalyticsController {
             let PDFDocument;
             try {
                 PDFDocument = require('pdfkit');
-            } catch (error) {
+            } catch (error : any) {
                 throw new Error('PDF generation requires the "pdfkit" package. Please install it using: npm install pdfkit');
             }
             
@@ -612,7 +621,7 @@ export class AnalyticsController {
                     resolve(pdfBuffer);
                 });
             });
-        } catch (error) {
+        } catch (error : any) {
             console.error('Error generating PDF:', error);
             throw error;
         }
@@ -625,12 +634,12 @@ export class AnalyticsController {
             try {
                 const json2csv = require('json2csv');
                 Parser = json2csv.Parser;
-            } catch (error) {
+            } catch (error : any) {
                 throw new Error('CSV generation requires the "json2csv" package. Please install it using: npm install json2csv');
             }
             
             // Format data for CSV export based on report type
-            let formattedData = [];
+            let formattedData : any = [];
             
             if (reportType === 'overview') {
                 // For a simple flat object like overview data
@@ -660,7 +669,7 @@ export class AnalyticsController {
                             formattedData = [data];
                         }
                     }
-                } catch (error) {
+                } catch (error : any) {
                     console.error('Error formatting data for CSV export:', error);
                     formattedData = [{ error: 'Data formatting error', data: JSON.stringify(data) }];
                 }
@@ -673,7 +682,7 @@ export class AnalyticsController {
             const csv = parser.parse(formattedData);
             
             return csv;
-        } catch (error) {
+        } catch (error : any) {
             console.error('Error generating CSV:', error);
             throw error;
         }

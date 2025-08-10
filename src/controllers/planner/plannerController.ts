@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const prisma = new PrismaClient();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const serializeContext = (data, title) => {
   if (!data || data.length === 0) return '';
@@ -93,7 +93,7 @@ export const generatePlan = async (req, res) => {
     // 3. AUGMENTATION (The "A" in RAG)
     // Clean up data for the prompt
     const cleanAccommodations = availableAccommodations.map(a => ({
-        name: a.accommodationName,
+        name: a.name ,
         location: a.location,
         avgRating: a.reviews.length > 0 ? a.reviews.reduce((acc, r) => acc + r.rating, 0) / a.reviews.length : 'N/A',
         rooms: a.rooms.map(r => ({ type: r.roomType, price: r.pricePerNight }))

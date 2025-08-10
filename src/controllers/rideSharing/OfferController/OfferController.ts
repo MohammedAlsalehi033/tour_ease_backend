@@ -35,7 +35,7 @@ export class OfferController {
         success: true,
         data: offersWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -63,7 +63,7 @@ export class OfferController {
         success: true,
         data: offerWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -101,7 +101,7 @@ export class OfferController {
         success: true,
         data: offerWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -123,7 +123,7 @@ export class OfferController {
           message: "Offer accepted and booking created"
         }
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -142,7 +142,7 @@ export class OfferController {
         data: updatedOffer,
         message: "Offer rejected"
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -165,7 +165,7 @@ export class OfferController {
         success: true,
         data: offersWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -188,7 +188,7 @@ export class OfferController {
         success: true,
         data: offersWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -210,7 +210,7 @@ export class OfferController {
         success: true,
         data: offersWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -232,7 +232,7 @@ export class OfferController {
         success: true,
         data: offersWithSignedUrls
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message
@@ -250,7 +250,7 @@ export class OfferController {
         success: true,
         data: stats
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message

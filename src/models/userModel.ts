@@ -150,7 +150,7 @@ async getAllUsers(
     }
     
     // Role filtering requires a different approach
-    let roleFilter = undefined;
+    let roleFilter;
     if (filter?.role) {
       roleFilter = {
         some: {

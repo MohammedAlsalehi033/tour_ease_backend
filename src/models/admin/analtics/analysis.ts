@@ -52,6 +52,24 @@ export interface GroupedAverage {
 
 
 export class AnalyticsModel {
+    getCommentCountsByContentType(filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
+    getVoteDistributionByContentType(filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
+    getRatingTrendsOverTime(arg0: string, filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
+    getProviderApplicationsOverTime(providerInterval: string, filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
+    getTopPerformingProviders(arg0: number, filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
+    getPopularAccommodationRoomTypes(filters: AnalyticsFilters): any {
+        throw new Error('Method not implemented.');
+    }
 
     // --- User Analytics ---
 
@@ -87,11 +105,11 @@ export class AnalyticsModel {
 
     async getUserCountByRole(filters: DateRangeFilter = {}): Promise<GroupedCount[]> {
          const where: Prisma.UserRoleWhereInput = {};
-         if (filters.startDate || filters.endDate) {
-             where.user = { createdAt: {} };
-             if (filters.startDate) where.user.createdAt.gte = filters.startDate;
-             if (filters.endDate) where.user.createdAt.lte = filters.endDate;
-         }
+        //  if (filters.startDate || filters.endDate) {
+        //      where.user = { createdAt: {} };
+        //      if (filters.startDate) where.user!.createdAt.gte = filters.startDate;
+        //      if (filters.endDate) where.user.createdAt.lte = filters.endDate;
+        //  }
 
          const result = await prisma.userRole.groupBy({
              by: ['roleId'],

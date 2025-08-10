@@ -45,7 +45,7 @@ class QuestionController {
         const questions = await this.questionModel.getAllItems(page, limit, sort);
 
         const questionsWithSignedUrls = await Promise.all(
-          questions.map(async (question) => {
+          questions.map(async (question : any) => {
             if (question.user?.mediaUrls?.length > 0) {
                 const signedUrls = await Promise.all(
 
@@ -73,7 +73,7 @@ class QuestionController {
             success: true,
             data: questionsWithSignedUrls
         });
-    } catch (error) {
+    } catch (error : any) {
         res.status(500).json({
             success: false,
             message: error.message
@@ -103,7 +103,7 @@ class QuestionController {
         success: true,
         data: {...question, user: { ...question.user, mediaUrls: signedUrls } }
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(error.message === 'Question not found' ? 404 : 500).json({
         success: false,
         message: error.message
@@ -126,7 +126,7 @@ class QuestionController {
         success: true,
         data: newQuestion
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(400).json({
         success: false,
         message: error.message
@@ -166,7 +166,7 @@ class QuestionController {
         success: true,
         data: updatedQuestion
       });
-    } catch (error) {
+    } catch (error : any) {
       if (error.message.includes('Unauthorized')) {
         res.status(403).json({
           success: false,
@@ -207,7 +207,7 @@ class QuestionController {
         success: true,
         message: 'Question deleted successfully'
       });
-    } catch (error) {
+    } catch (error : any) {
       if (error.message.includes('Unauthorized')) {
         res.status(403).json({
           success: false,
@@ -239,7 +239,7 @@ class QuestionController {
         success: true,
         data: questions
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(400).json({
         success: false,
         message: error.message
@@ -265,7 +265,7 @@ class QuestionController {
         success: true,
         data: updatedQuestion
       });
-    } catch (error) {
+    } catch (error : any) {
       console.error('Error voting on question:', error);
       res.status(500).json({ error: 'Failed to process vote' });
     }
@@ -305,7 +305,7 @@ class QuestionController {
       data: jsonData 
     });
 
-  } catch (error) {
+  } catch (error : any) {
     console.error('Error asking the AI:', error);
     res.status(500).json({ error: `Failed to get AI response ${error.message}` });
   }

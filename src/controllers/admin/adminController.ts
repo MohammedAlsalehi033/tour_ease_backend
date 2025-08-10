@@ -46,7 +46,9 @@ export class AdminController {
 
     async getPendingTransportationProviders(req: Request, res: Response) {
         try {
-            const {status, page, pageSize} = req.query;
+            const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+            const page = typeof req.query.page === 'string' ? parseInt(req.query.page) : 1;
+            const pageSize = typeof req.query.pageSize === 'string' ? parseInt(req.query.pageSize) : 10;
 
             const providers = await this.adminModel.getTransportationProvidersByStatus(status , page, pageSize);
 

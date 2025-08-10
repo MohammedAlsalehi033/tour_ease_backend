@@ -117,7 +117,7 @@ async searchNearbyRequests(
       `;
     }
 
-    const nearbyRequests = await prisma.$queryRawUnsafe<NearbyTransportationRequest[]>(query);
+    const nearbyRequests = await prisma.$queryRawUnsafe(query);
     return nearbyRequests;
   } catch (error) {
     console.error("Error searching nearby requests:", error);

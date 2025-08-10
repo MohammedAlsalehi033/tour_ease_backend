@@ -33,7 +33,7 @@ export class MessageController {
   async getChatsForUser(req, res) {
     try {
       const userId = req.params.userId;
-      const chatPartners = await this.messageModel.getChatsByUserId(userId);
+      const chatPartners : any = await this.messageModel.getChatsByUserId(userId);
       
       const chatPartnersWithDetails = await Promise.all(
         chatPartners.map(async (user) => {
@@ -59,7 +59,7 @@ export class MessageController {
         success: true,
         data: chatPartnersWithDetails,
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message,
@@ -94,7 +94,7 @@ export class MessageController {
         success: true,
         data: messages,
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message,
@@ -135,7 +135,7 @@ export class MessageController {
         success: true,
         data: newMessage,
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message,
@@ -174,7 +174,7 @@ export class MessageController {
         success: true,
         data: deletedMessage,
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message,
@@ -198,7 +198,7 @@ export class MessageController {
         success: true,
         data: message,
       });
-    } catch (error) {
+    } catch (error : any) {
       res.status(500).json({
         success: false,
         message: error.message,

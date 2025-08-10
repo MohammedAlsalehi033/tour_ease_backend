@@ -46,10 +46,10 @@ export default class ListingController {
         providerId,
         startLocationText,
         endLocationText,
-        startLocationLat ? Number(startLocationLat) : null,
-        startLocationLng ? Number(startLocationLng) : null,
-        endLocationLat ? Number(endLocationLat) : null,
-        endLocationLng ? Number(endLocationLng) : null,
+        startLocationLat ? Number(startLocationLat) : 0,
+        startLocationLng ? Number(startLocationLng) : 0,
+        endLocationLat,
+        endLocationLng,
         new Date(departureTime),
         Number(pricePerSeat),
         Number(seatsAvailable),
@@ -61,7 +61,7 @@ export default class ListingController {
         success: true,
         data: newListing,
       });
-    } catch (error) {
+    } catch (error : any) {
       console.error("Error in createListing controller:", error);
       return res.status(500).json({
         success: false,

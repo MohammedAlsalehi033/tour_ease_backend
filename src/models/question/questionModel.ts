@@ -45,7 +45,7 @@ export class PrismaQuestionModel extends BaseModel<any> {
     });
   }
 
-  async getItemById(id: string): Promise<Question | null> {
+  async getItemById(id: string): Promise<any> {
     return prisma.question.findUnique({
       where: { id: typeof id === "string" ? parseInt(id) : id },
       include: {

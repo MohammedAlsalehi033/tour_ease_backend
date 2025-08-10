@@ -36,8 +36,8 @@ export class FirebaseNotifier {
       console.error('Error sending Firebase notification:', error);
       
       // If the token is invalid, it should be removed from your database.
-      if (error.code === 'messaging/registration-token-not-registered') {
-          console.error(`FCM token ${fcmToken} is no longer valid and should be removed.`);
+      if (error) {
+          console.error(`FCM token ${fcmTokens} is no longer valid and should be removed.`);
       }
     }
   }

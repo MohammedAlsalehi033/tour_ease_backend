@@ -57,7 +57,7 @@ const authMiddleware = (requiredRoles = []) => {
       req.user = user;
       
       next();
-    } catch (error) {
+    } catch (error : any) {
       console.error('Authentication error:', error);
       
       if (error.code === 'auth/id-token-expired') {
