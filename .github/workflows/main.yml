@@ -33,7 +33,7 @@ jobs:
           gh repo sync --force
           
           echo "📦 Installing dependencies..."
-          npm install --production
+          npm install 
           
           echo "🏗️ Building application..."
           # Continue even if build fails (but log the error)
@@ -43,7 +43,7 @@ jobs:
           fi
           
           echo "🔄 Restarting PM2 process with ID 4..."
-          pm2 restart 4 --update-env || {
+          pm2 restart 2 --update-env || {
             echo "❌ Failed to restart PM2 process with ID 4. Starting the application..."
             pm2 start npm --name "$APP_NAME" -- run start
           }
