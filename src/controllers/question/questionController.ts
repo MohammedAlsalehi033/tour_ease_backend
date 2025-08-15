@@ -113,7 +113,8 @@ class QuestionController {
 
   async createQuestion(req, res) {
     try {
-      const { title, description, tags , userId} = req.body;
+      const userId = req.user.id;
+      const { title, description, tags } = req.body;
       
       const newQuestion = await this.questionModel.createItem({
         title,
@@ -137,7 +138,9 @@ class QuestionController {
   async updateQuestion(req, res) {
     try {
       const questionId = req.params.id;
-      const { title, description, tags, userId } = req.body;
+            const userId = req.user.id;
+
+      const { title, description, tags } = req.body;
       // const userId = req.user.id;
       
       const question = await this.questionModel.getItemById(questionId);
@@ -198,7 +201,12 @@ class QuestionController {
           message: 'Question not found'
         });
       }
-      
+      if(question.user.id !== req.user.id){
+          return res.status(404).json({
+          success: false,
+          message: 'this is not your question you cant delete it'
+        });
+      }
    
       
       await this.questionModel.deleteItem(questionId);
@@ -249,7 +257,9 @@ class QuestionController {
   
   async voteQuestion(req, res) {
     try {
-      const { id , userId , isUpVote: isUpVote }: { id: number; userId: string; isUpVote: boolean; } = req.body;
+            const userId = req.user.id;
+
+      const { id , isUpVote: isUpVote }: { id: number; userId: string; isUpVote: boolean; } = req.body;
       console.log(id,userId,isUpVote)
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });

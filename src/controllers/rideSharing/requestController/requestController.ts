@@ -1,5 +1,7 @@
+import { container } from 'tsyringe';
 import RequestModel from '../../../models/rideSharing/requestModel';
 import { Request, Response } from 'express';
+import { FirebaseNotifier } from '../../../utils/firebaseNotficationsManger';
 
 export default class RequestController {
   private requestModel: RequestModel;
@@ -46,6 +48,8 @@ export default class RequestController {
         Number(seatsNeeded),
         Number(budget)
       );
+
+      
 
       return res.status(201).json({
         success: true,

@@ -30,6 +30,9 @@ export class FirebaseNotifier {
       token: token,
     }));
 
+    if (messages.length < 0) {
+      return
+    }
     try {
       const response = await messaging.sendEach(messages);
     } catch (error) {

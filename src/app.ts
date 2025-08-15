@@ -22,6 +22,7 @@ const { createChatRouter } = require("./routes/chat/chatRouter");
 
 
 import { PrismaClient } from '@prisma/client';
+import authMiddleware from "./middleware/authMiddleware";
 require('dotenv').config();
 const { initializeApp } = require('firebase-admin/app');
 var admin = require("firebase-admin");
@@ -104,9 +105,9 @@ app.get('/test-socket', (req, res) => {
   res.sendFile(__dirname + '/test-chat.html');
 });
 
-app.get('/', (req, res) => {
+app.get('/', authMiddleware([]),(req, res) => {
   res.json({
-    message: 'Welcome to the API'
+    message: req.user
   });
 });
 

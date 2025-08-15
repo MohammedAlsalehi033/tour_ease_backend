@@ -1,6 +1,7 @@
 import { CommentController } from "../../../controllers/question/comment/commentController";
 import { PrisnaCommentModel } from "../../../models/question/comment/commentModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
+import authMiddleware from '../../../middleware/authMiddleware';
 
 export {};
 
@@ -12,7 +13,7 @@ const commentController = new CommentController(new PrisnaCommentModel , new Fil
 
 router.get("/commments" ,commentController.getAllCommentsForQuestion.bind(commentController));
 router.delete('/comments/:id' , commentController.deleteComment.bind(commentController))
-router.post("/commments" ,commentController.createComment.bind(commentController));
+router.post("/commments" ,authMiddleware(["traveler"]),commentController.createComment.bind(commentController));
 
 
 

@@ -2,11 +2,10 @@ import { prisma } from '../utils/prismaClient';
 import admin from '../services/firebase-admin';
 
 
-const authMiddleware = (requiredRoles = []) => {
+const authMiddleware = (requiredRoles : string[] = []) => { 
   return async (req, res, next) => {
     try {
       const token = req.header('Authorization')?.replace('Bearer ', '');
-      
       if (!token) {
         return res.status(401).json({
           success: false,
@@ -44,6 +43,7 @@ const authMiddleware = (requiredRoles = []) => {
 
       if (requiredRoles.length > 0) {
         const userRoleNames = user.roles.map(userRole => userRole.role.roleName);
+        console.log(userRoleNames)
         const hasRequiredRole = requiredRoles.some(role => userRoleNames.includes(role));
         
         if (!hasRequiredRole) {

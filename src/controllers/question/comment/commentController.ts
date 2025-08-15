@@ -54,7 +54,9 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
 
     async createComment(req, res) {
         try {
-            const {userId , questionId , content} = req.body;
+                  const userId = req.user.id;
+
+            const { questionId , content} = req.body;
             const newComment = await this.commentModel.createItem(userId , questionId , content);
             res.status(201).json({
                 success: true,

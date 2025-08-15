@@ -1,5 +1,7 @@
+import { container } from "tsyringe";
 import { prisma } from "../../utils/prismaClient";
 import { Offer } from "@prisma/client"; 
+import { FirebaseNotifier } from "../../utils/firebaseNotficationsManger";
 
 export class PrismaOfferModel {
   getAllOffers(
@@ -274,12 +276,14 @@ async acceptOffer(offerId: number): Promise<any> {
     where: { id: offerId },
   });
   
+  
+  
   if (!offer) {
     throw new Error("Offer not found");
   }
   
-  // Start a transaction to ensure data consistency
-  return prisma.$transaction(async (tx) => {
+  const returnedValue =await prisma.$transaction(async (tx) => {
+  
     // Update the offer status
     const updatedOffer = await tx.offer.update({
       where: { id: offerId },
@@ -364,6 +368,8 @@ async acceptOffer(offerId: number): Promise<any> {
         }) : 0
     };
   });
+  console.log(returnedValue)
+  return returnedValue;
 }
   // Reject an offer
   rejectOffer(offerId: number): Promise<Offer> {
