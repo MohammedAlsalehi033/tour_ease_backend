@@ -1,8 +1,10 @@
+import { DateTime } from './../../../../node_modules/effect/dist/dts/DateTime.d';
 import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
 import { container } from "tsyringe";
 import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
+
 
 export class OfferController {
   private offerModel: PrismaOfferModel;
@@ -121,9 +123,20 @@ export class OfferController {
 
   // Accept an offer
   async acceptOffer(req, res) {
+    
+    
     try {
       const offerId = parseInt(req.params.id);
       const result = await this.offerModel.acceptOffer(offerId);
+  const notificationManager = container.resolve(FirebaseNotifier)
+  notificationManager.sendNotification(result.offer.senderId,{
+    body: "Transportation offer was accepted",
+    title: `the transportation offer made at ${result.offer.createdAt}`
+  })
+  notificationManager.sendNotification(result.offer.recipientId,{
+    body: "Transportation offer was accepted",
+    title: `the transportation offer made at ${result.offer.createdAt}`
+  })
       
       // const notificationsManger = container.resolve(FirebaseNotifier)
       //   notificationsManger.sendNotification(result.booking.travelerId, {

@@ -5,6 +5,7 @@ import { Server as SocketIOServer } from "socket.io";
 import express from 'express';
 import authMiddleware from "../../middleware/authMiddleware";
 import UserModel from "../../models/userModel";
+import { auth } from "firebase-admin";
 
 // Export a function that takes the io instance and connectedUsers Map and returns the router
 export const createChatRouter = (io, connectedUsers) => {
@@ -20,13 +21,13 @@ export const createChatRouter = (io, connectedUsers) => {
   );
   
   // Get all unique chat partners for a user
-  router.get("/chats/:userId", messageController.getChatsForUser.bind(messageController));
+  router.get("/chats/:userId",authMiddleware(["traveler"]) ,messageController.getChatsForUser.bind(messageController));
   
   // Get messages between two specific users (with pagination and sorting)
-  router.get("/messages", messageController.getMessagesBetweenUsers.bind(messageController));
+  router.get("/messages",authMiddleware(["traveler"]), messageController.getMessagesBetweenUsers.bind(messageController));
   
   // Send a new message
-  router.post("/messages", messageController.sendMessage.bind(messageController));
+  router.post("/messages",authMiddleware(["traveler"]), messageController.sendMessage.bind(messageController));
   
   // Delete a specific message by ID
   router.delete("/messages/:id", messageController.deleteMessage.bind(messageController));

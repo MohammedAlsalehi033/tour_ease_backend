@@ -36,7 +36,7 @@ export class MessageController {
 
   async getChatsForUser(req, res) {
     try {
-      const userId = req.params.userId;
+      const userId = req.user.id;
       const chatPartners : any = await this.messageModel.getChatsByUserId(userId);
       
       const chatPartnersWithDetails = await Promise.all(
@@ -73,7 +73,7 @@ export class MessageController {
 
   async getMessagesBetweenUsers(req, res) {
     try {
-      const senderId = req.query.senderId as string;
+      const senderId = req.user.id as string;
       const receiverId = req.query.receiverId as string;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
@@ -108,7 +108,8 @@ export class MessageController {
 
   async sendMessage(req, res) {
     try {
-      const { senderId, receiverId, content } = req.body;
+      const senderId = req.user.id;
+      const {  receiverId, content } = req.body;
       if (!senderId || !receiverId || !content) {
         return res.status(400).json({
           success: false,

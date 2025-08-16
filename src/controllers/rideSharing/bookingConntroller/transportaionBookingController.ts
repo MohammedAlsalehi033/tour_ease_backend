@@ -1,5 +1,7 @@
 import { TransportationListing } from '@prisma/client'; // This import seems unused in the provided snippet, but kept as requested.
 import { transportationBookingModel } from '../../../models/rideSharing/bookingModel';
+import { container } from 'tsyringe';
+import { FirebaseNotifier } from '../../../utils/firebaseNotficationsManger';
 
 export class transportationBookingController {
     private transportationBookingModelInstance: transportationBookingModel;
@@ -62,6 +64,12 @@ export class transportationBookingController {
         try {
             const {bookingId , status} = req.query
             const data = await this.transportationBookingModelInstance.changeBookingState(bookingId, status) 
+              const notificationManager = container.resolve(FirebaseNotifier)
+        notificationManager.sendNotification(data.travelerId,{
+          body: "you recevied a new offer",
+          title: `your offer to `
+        })
+
             return res.status(200).json({
                 success: true,
                 data: data
