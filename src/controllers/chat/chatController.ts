@@ -3,23 +3,27 @@ import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Server as SocketIOServer } from "socket.io";
 import { container } from 'tsyringe';
 import { FirebaseNotifier } from "../../utils/firebaseNotficationsManger";
+import UserModel from '../../models/userModel';
 
 export class MessageController {
   private messageModel: PrismaMessageModel;
   private fileUploader: FileUploaderForS3;
   private io: SocketIOServer;
   private connectedUsers: Map<string, string>;
+  private userModel: UserModel;
 
   constructor(
     messageModel: PrismaMessageModel, 
     fileUploader: FileUploaderForS3,
     io: SocketIOServer,
-    connectedUsers: Map<string, string>
+    connectedUsers: Map<string, string>,
+    userModel: UserModel
   ) {
     this.messageModel = messageModel;
     this.fileUploader = fileUploader;
     this.io = io;
     this.connectedUsers = connectedUsers;
+    this.userModel = userModel;
   }
 
   private isUserConnected(userId: string): boolean {
@@ -117,17 +121,19 @@ export class MessageController {
         receiverId,
         content
       );
-      
+
       const receiverSocketId = this.getUserSocketId(receiverId);
       if (receiverSocketId) {
         this.io.to(receiverSocketId).emit('new_message', newMessage);
       }
       else{
-
+        const user = await this.userModel.getUserById(senderId);
+        
+        
         const notificationsManger = container.resolve(FirebaseNotifier)
         notificationsManger.sendNotification(receiverId, {
           title: "New Message",
-          body: `You have received a new message from user`,
+          body: `You have received a new message from ${user.username}`,
         });
       }
       

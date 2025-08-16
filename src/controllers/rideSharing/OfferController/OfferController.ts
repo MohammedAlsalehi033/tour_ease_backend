@@ -1,6 +1,8 @@
 import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
+import { container } from "tsyringe";
+import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
 
 export class OfferController {
   private offerModel: PrismaOfferModel;
@@ -95,6 +97,14 @@ export class OfferController {
       };
 
       const newOffer = await this.offerModel.createOffer(offerData);
+
+        const notificationsManger = container.resolve(FirebaseNotifier)
+              notificationsManger.sendNotification(recipientId, {
+                title: "New Offer",
+                body: `You have a New Offer for Ride /n ${message}`,
+              });
+            
+
       const offerWithSignedUrls = await this.processUserMediaUrls(newOffer);
 
       res.status(201).json({
@@ -114,7 +124,13 @@ export class OfferController {
     try {
       const offerId = parseInt(req.params.id);
       const result = await this.offerModel.acceptOffer(offerId);
-
+      
+      // const notificationsManger = container.resolve(FirebaseNotifier)
+      //   notificationsManger.sendNotification(result.booking.travelerId, {
+      //     title: "New Message",
+      //     body: `You have received a new message from ${user.username}`,
+      //   });
+      
       res.status(200).json({
         success: true,
         data: {

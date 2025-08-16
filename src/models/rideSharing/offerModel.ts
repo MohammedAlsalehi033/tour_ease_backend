@@ -278,9 +278,7 @@ async acceptOffer(offerId: number): Promise<any> {
     throw new Error("Offer not found");
   }
   
-  // Start a transaction to ensure data consistency
   return prisma.$transaction(async (tx) => {
-    // Update the offer status
     const updatedOffer = await tx.offer.update({
       where: { id: offerId },
       data: { status: "accepted" },
@@ -288,24 +286,22 @@ async acceptOffer(offerId: number): Promise<any> {
     
     // Automatically reject all other offers for the same listing or request
     if (offer.transportationListingId) {
-      // If this is a listing-based offer, reject other offers for the same listing
       await tx.offer.updateMany({
         where: {
           transportationListingId: offer.transportationListingId,
           id: { not: offerId },
-          status: { in: ["pending", "countered"] }  // Only reject active offers
+          status: { in: ["pending", "countered"] }  
         },
         data: {
           status: "rejected"
         }
       });
     } else if (offer.transportationRequestId) {
-      // If this is a request-based offer, reject other offers for the same request
       await tx.offer.updateMany({
         where: {
           transportationRequestId: offer.transportationRequestId,
           id: { not: offerId },
-          status: { in: ["pending", "countered"] }  // Only reject active offers
+          status: { in: ["pending", "countered"] }  
         },
         data: {
           status: "rejected"
@@ -313,10 +309,8 @@ async acceptOffer(offerId: number): Promise<any> {
       });
     }
     
-    // Calculate total price
     const totalPrice = Number(offer.pricePerSeat) * offer.seatsRequested;
     
-    // Create a booking based on the offer
     const booking = await tx.transportationBooking.create({
       data: {
         travelerId: offer.transportationListingId

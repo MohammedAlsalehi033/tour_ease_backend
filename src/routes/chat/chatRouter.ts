@@ -4,6 +4,7 @@ import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Server as SocketIOServer } from "socket.io";
 import express from 'express';
 import authMiddleware from "../../middleware/authMiddleware";
+import UserModel from "../../models/userModel";
 
 // Export a function that takes the io instance and connectedUsers Map and returns the router
 export const createChatRouter = (io, connectedUsers) => {
@@ -13,7 +14,9 @@ export const createChatRouter = (io, connectedUsers) => {
     new PrismaMessageModel(), 
     new FileUploaderForS3(),
     io,
-    connectedUsers
+    connectedUsers,
+    new UserModel()
+
   );
   
   // Get all unique chat partners for a user
