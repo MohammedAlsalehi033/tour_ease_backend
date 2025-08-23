@@ -15,8 +15,8 @@ router.get('/questions', questionController.getAllQuestions.bind(questionControl
 
 
 
-router.get('/questions/:id', questionController.getQuestionById.bind(questionController));
 router.get('/questions/search', questionController.searchQuestions.bind(questionController));
+router.get('/questions/:id', questionController.getQuestionById.bind(questionController));
 
 router.post('/questions',authMiddleware(["traveler"]), questionController.createQuestion.bind(questionController));
 router.put('/questions/:id',authMiddleware(["traveler"]), questionController.updateQuestion.bind(questionController));

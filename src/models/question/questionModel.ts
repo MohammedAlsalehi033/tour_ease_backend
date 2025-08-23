@@ -46,6 +46,7 @@ export class PrismaQuestionModel extends BaseModel<any> {
   }
 
   async getItemById(id: string): Promise<any> {
+    console.log("activating getItemById");
     return prisma.question.findUnique({
       where: { id: typeof id === "string" ? parseInt(id) : id },
       include: {
@@ -107,7 +108,7 @@ export class PrismaQuestionModel extends BaseModel<any> {
   async searchItems(query: string, page = 1, limit = 10): Promise<Question[]> {
     const skip = (page - 1) * limit;
 
-    return prisma.question.findMany({
+    const result =  prisma.question.findMany({
       where: {
         OR: [
           { title: { contains: query, mode: "insensitive" } },
@@ -121,7 +122,9 @@ export class PrismaQuestionModel extends BaseModel<any> {
       include: {
         user: {
           select: {
-            id: true,
+                       id: true,
+            username: true,
+            mediaUrls: true,
           },
         },
         _count: {
@@ -129,6 +132,8 @@ export class PrismaQuestionModel extends BaseModel<any> {
         },
       },
     });
+    console.log(result)
+    return result;
   }
 
   async createComment(data: any) {
