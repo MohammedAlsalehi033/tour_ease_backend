@@ -99,7 +99,6 @@ export class PrismaQuestionModel extends BaseModel<any> {
 
   async deleteItem(id: number | string): Promise<Question> {
 
-    console.log("ddddddddddddddddddddd")
     return prisma.question.delete({
       where: { id: typeof id === "string" ? parseInt(id) : id },
     });
