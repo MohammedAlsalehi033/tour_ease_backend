@@ -58,15 +58,16 @@ export class SuperAdminController {
      * Expects a `userId` in the request parameters.
      */
     removeAdmin = async (req: Request, res: Response): Promise<void> => {
-        const { userId } = req.params;
+        console.log("removeAdmin called with params:", req.params);
+        const { id } = req.params;
 
-        if (!userId) {
+        if (!id) {
             res.status(400).json({ error: "User ID is required" });
             return;
         }
 
         try {
-            const updatedUser = await this.superAdminModel.removeAdmin(userId);
+            const updatedUser = await this.superAdminModel.removeAdmin(id);
             res.status(200).json({ message: "Admin role removed successfully", data: updatedUser });
         } catch (error) {
             console.error("Error removing admin:", error);
@@ -83,15 +84,15 @@ export class SuperAdminController {
      * Expects a `userId` in the request parameters.
      */
     toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
-        const { userId } = req.params;
+        const { id } = req.params;
 
-        if (!userId) {
+        if (!id) {
             res.status(400).json({ error: "User ID is required" });
             return;
         }
 
         try {
-            const updatedUser = await this.superAdminModel.toggleUserStatus(userId);
+            const updatedUser = await this.superAdminModel.toggleUserStatus(id);
             res.status(200).json({ message: `User status changed to ${updatedUser.accountStatus}`, data: updatedUser });
         } catch (error) {
             console.error("Error toggling user status:", error);
@@ -108,10 +109,10 @@ export class SuperAdminController {
      * Expects `adminId` in parameters and `permissions` in the request body.
      */
     changeAdminPermissions = async (req: Request, res: Response): Promise<void> => {
-        const { adminId } = req.params;
+        const { id } = req.params;
         const { permissions } = req.body;
 
-        if (!adminId) {
+        if (!id) {
             res.status(400).json({ error: "Admin ID is required" });
             return;
         }
@@ -122,7 +123,7 @@ export class SuperAdminController {
         }
 
         try {
-            const updatedAdmin = await this.superAdminModel.changeAdminPermissions(adminId, permissions);
+            const updatedAdmin = await this.superAdminModel.changeAdminPermissions(id, permissions);
             res.status(200).json({ message: "Permissions updated successfully", data: updatedAdmin });
         } catch (error) {
             console.error("Error changing admin permissions:", error);
