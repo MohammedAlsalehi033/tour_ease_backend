@@ -8,6 +8,7 @@ const adminMiddleware = (requiredPermissions: string[] = []) => {
     try {
 
       const token = req.header('Authorization')?.replace('Bearer ', '');
+
       if (!token) {
         return res.status(401).json({
           success: false,
@@ -16,13 +17,14 @@ const adminMiddleware = (requiredPermissions: string[] = []) => {
       }
 
       const decodedToken = await admin.auth.verifyIdToken(token);
+
+     
       
       const myAdmin = await prisma.admin.findUnique({
         where: { adminId: decodedToken.uid },
     
       });
 
-      console.log(myAdmin)
       if (!myAdmin) {
         return res.status(401).json({
           success: false,
@@ -30,17 +32,21 @@ const adminMiddleware = (requiredPermissions: string[] = []) => {
         });
       }
 
-    //   // Check account status
-    //   if (myAdmin.accountStatus !== 'active') {
-    //     return res.status(403).json({
-    //       success: false,
-    //       message: 'Account is not active'
-    //     });
-    //   }
+
+       const user =await prisma.user.findUnique({
+                where: { id: decodedToken.uid },
+      });
+      // Check account status
+      if (user.accountStatus !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active'
+        });
+      }
 
       if (requiredPermissions.length > 0) {
-        const userPermissionNames = myAdmin.permissions.map(userPermission => userPermission.permission.permissionName);
-        const hasRequiredPermission = requiredPermissions.some(permission => userPermissionNames.includes(permission));
+        const userPermissionNames = myAdmin.permissions;
+        const hasRequiredPermission = requiredPermissions.every(permission => userPermissionNames.includes(permission));
 
         if (!hasRequiredPermission) {
           return res.status(403).json({
@@ -70,7 +76,7 @@ const adminMiddleware = (requiredPermissions: string[] = []) => {
       
       res.status(401).json({
         success: false,
-        message: 'Token is invalid or expired'
+        message: `${error.message}`
       });
     }
   };
