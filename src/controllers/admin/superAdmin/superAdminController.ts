@@ -26,7 +26,7 @@ export class SuperAdminController {
      * Expects a `userId` in the request parameters.
      */
     addNewAdmin = async (req: Request, res: Response): Promise<void> => {
-        const { userId } = req.params;
+        const { userId } = req.body;
 
         if (!userId) {
             res.status(400).json({ error: "User ID is required" });

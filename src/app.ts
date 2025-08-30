@@ -100,6 +100,8 @@ app.use('/api', transportationBookingRouter);
 app.use('/api', AIPlannerRoute);
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
+
+
 app.use('/api/admin', adminAnalysisRouter);
 app.use('/api/admin/super', superAdmin);
 
