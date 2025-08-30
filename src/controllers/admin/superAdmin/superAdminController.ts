@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'; // Assuming you use Express for types
 import { SuperAdminModel } from "../../../models/admin/superAdmin/superAdminModel";
+import { User } from '@prisma/client';
 
 export class SuperAdminController {
     private superAdminModel: SuperAdminModel;
@@ -14,6 +15,7 @@ export class SuperAdminController {
     getAllAdmins = async (req: Request, res: Response): Promise<void> => {
         try {
             const admins = await this.superAdminModel.getAllAdmins();
+            console.log("myAdmin", req.user);
             res.status(200).json(admins);
         } catch (error) {
             console.error("Error fetching admins:", error);
@@ -119,6 +121,11 @@ export class SuperAdminController {
 
         if (!permissions || !Array.isArray(permissions)) {
             res.status(400).json({ error: "Permissions must be an array of strings" });
+            return;
+        }
+
+        if (permissions.includes("Super Admin")) {
+            res.status(400).json({ error: "Cannot remove superAdmin permission good try tho" });
             return;
         }
 

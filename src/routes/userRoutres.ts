@@ -6,6 +6,7 @@ import multer from 'multer';
 import express from 'express';
 const router = express.Router();
 import { FileUploaderForS3 } from "../utils/FileUploader";
+import adminMiddleware from "../middleware/adminsMiddleware";
 const fileUploaderForS3 = new FileUploaderForS3();
 const userController = new UserController(new UserModel, fileUploaderForS3);
 
@@ -31,7 +32,7 @@ router.get('/getRole', userController.getRole.bind(userController));
 router.post('/updateUserRole', userController.updateRole.bind(userController));
 router.post('/FCMToken/:id', userController.addFCMTokenToUser.bind(userController));
 router.get('/getUserById', userController.getUserById.bind(userController));
-router.get("/getAllUsers", userController.getAllUsers.bind(userController))
+router.get("/getAllUsers", adminMiddleware(["Manage Users"]) ,userController.getAllUsers.bind(userController))
 router.post(
     '/profile-picture/:id?', 
     upload.single('profilePicture'), 
