@@ -31,7 +31,7 @@ router.post('/createUser', userController.createUser.bind(userController));
 router.get('/getRole', userController.getRole.bind(userController));
 router.post('/updateUserRole', userController.updateRole.bind(userController));
 router.post('/FCMToken/:id', userController.addFCMTokenToUser.bind(userController));
-router.get('/getUserById',adminMiddleware(["Manage Users",]), userController.getUserById.bind(userController));
+router.get('/getUserById', userController.getUserById.bind(userController));
 router.get("/getAllUsers", adminMiddleware(["Manage Users",]) ,userController.getAllUsers.bind(userController))
 router.post(
     '/profile-picture/:id?', 
