@@ -14,7 +14,7 @@ const authMiddleware = (requiredRoles : string[] = []) => {
       }
 
       const decodedToken = await admin.auth.verifyIdToken(token);
-      
+      console.log(decodedToken)
       const user = await prisma.user.findUnique({
         where: { id: decodedToken.uid },
         include: {
@@ -32,6 +32,7 @@ const authMiddleware = (requiredRoles : string[] = []) => {
           message: 'User not found in database'
         });
       }
+
 
       // Check account status
       if (user.accountStatus !== 'active') {
