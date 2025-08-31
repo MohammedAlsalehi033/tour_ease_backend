@@ -86,7 +86,7 @@ export default class ListingController {
 
 
 
-    
+    console.log(lat, lng, queryEndLat, queryEndLng, queryRadiusKm, queryMinSeats, queryMaxPrice, queryDepartureAfter, queryDepartureBefore)
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
           success: false,
