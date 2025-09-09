@@ -10,33 +10,35 @@ datasource db {
 }
 
 model User {
-  id                     String                  @id @unique
-  username               String                  @unique
-  email                  String                  @unique
-  passwordHash           String
-  mediaUrls              String[]
-  accountStatus          String                  @default("active")
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  fcmTokens              String[]                @default([])
-  accommodationBookings  AccommodationBooking[]
-  accommodationProvider  AccommodationProvider?
-  admin                  Admin?
-  comments               Comment[]
-  receivedMessages       Message[]               @relation("ReceiverMessages")
-  sentMessages           Message[]               @relation("SenderMessages")
-  notifications          Notification[]
-  receivedOffers         Offer[]                 @relation("ReceivedOffers")
-  sentOffers             Offer[]                 @relation("SentOffers")
-  questions              Question[]
-  reviews                Review[]                @relation("ReviewerRelation")
-  transportationBookings TransportationBooking[]
-  transportationProvider TransportationProvider?
-  TransportationRequest  TransportationRequest[]
-  traveler               Traveler?
-  trips                  Trip[]
-  roles                  UserRole[]
-  Vote                   Vote[]
+  id                                 String                  @id @unique
+  username                           String                  @unique
+  email                              String                  @unique
+  passwordHash                       String
+  mediaUrls                          String[]
+  accountStatus                      String                  @default("active")
+  createdAt                          DateTime                @default(now())
+  updatedAt                          DateTime                @updatedAt
+  fcmTokens                          String[]                @default([])
+  accommodationBookings              AccommodationBooking[]
+  accommodationProvider              AccommodationProvider?
+  admin                              Admin?
+  comments                           Comment[]
+  receivedMessages                   Message[]               @relation("ReceiverMessages")
+  sentMessages                       Message[]               @relation("SenderMessages")
+  notifications                      Notification[]
+  receivedOffers                     Offer[]                 @relation("ReceivedOffers")
+  sentOffers                         Offer[]                 @relation("SentOffers")
+  questions                          Question[]
+  Report_Report_reportedUserIdToUser Report[]                @relation("Report_reportedUserIdToUser")
+  Report_Report_reporterIdToUser     Report[]                @relation("Report_reporterIdToUser")
+  reviews                            Review[]                @relation("ReviewerRelation")
+  transportationBookings             TransportationBooking[]
+  transportationProvider             TransportationProvider?
+  TransportationRequest              TransportationRequest[]
+  traveler                           Traveler?
+  trips                              Trip[]
+  roles                              UserRole[]
+  Vote                               Vote[]
 
   @@index([email])
   @@index([accountStatus])
@@ -124,6 +126,7 @@ model TransportationListing {
   startLocationLng  Float?
   startLocationText String
   offers            Offer[]
+  Report            Report[]
   reviews           Review[]                @relation("TransportationListingReviews")
   bookings          TransportationBooking[]
   provider          TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
@@ -146,6 +149,7 @@ model TransportationBooking {
   transportationListingId Int?
   transportationRequestId Int?
   offerId                 Int?
+  Report                  Report[]
   reviews                 Review[]               @relation("TransportationBookingReviews")
   offer                   Offer?                 @relation(fields: [offerId], references: [id])
   listing                 TransportationListing? @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
@@ -175,6 +179,7 @@ model Offer {
   sender                  User                    @relation("SentOffers", fields: [senderId], references: [id], onDelete: Cascade)
   listing                 TransportationListing?  @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
   request                 TransportationRequest?  @relation(fields: [transportationRequestId], references: [id], onDelete: Cascade)
+  Report                  Report[]
   bookings                TransportationBooking[]
 
   @@index([senderId])
@@ -193,6 +198,7 @@ model Accommodation {
   mediaUrls   String[]
   createdAt   DateTime              @default(now())
   provider    AccommodationProvider @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  Report      Report[]
   reviews     Review[]              @relation("AccommodationReviews")
   rooms       Room[]
 
@@ -210,6 +216,7 @@ model Room {
   mediaUrls       String[]
   createdAt       DateTime               @default(now())
   bookings        AccommodationBooking[]
+  Report          Report[]
   reviews         Review[]               @relation("RoomReviews")
   accommodation   Accommodation          @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
 
@@ -231,6 +238,7 @@ model AccommodationBooking {
   room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   traveler     User     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
   payment      Payment? @relation("AccommodationPayment")
+  Report       Report[]
   reviews      Review[] @relation("AccommodationBookingReviews")
 
   @@index([travelerId])
@@ -275,6 +283,7 @@ model Message {
   sentAt     DateTime @default(now())
   receiver   User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
   sender     User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  Report     Report[]
 
   @@index([senderId])
   @@index([receiverId])
@@ -347,6 +356,7 @@ model Admin {
   permissions String[]
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  Report      Report[]
 }
 
 model Question {
@@ -361,6 +371,7 @@ model Question {
   tags        String[]
   comments    Comment[]
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Report      Report[]
   vote        Vote[]
 
   @@index([userId])
@@ -378,6 +389,7 @@ model Comment {
   createdAt  DateTime @default(now())
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Report     Report[]
 
   @@index([userId])
   @@index([questionId])
@@ -406,7 +418,76 @@ model spatial_ref_sys {
   proj4text String? @db.VarChar(2048)
 }
 
+model Report {
+  id                               Int                    @id @default(autoincrement())
+  reporterId                       String
+  reportableType                   String
+  reportReason                     String
+  description                      String
+  status                           String                 @default("pending")
+  createdAt                        DateTime               @default(now())
+  updatedAt                        DateTime
+  resolvedAt                       DateTime?
+  resolvedBy                       String?
+  resolutionNotes                  String?
+  reportedUserId                   String?
+  transportationListingId          Int?
+  accommodationId                  Int?
+  roomId                           Int?
+  questionId                       Int?
+  commentId                        Int?
+  messageId                        Int?
+  offerId                          Int?
+  transportationBookingId          Int?
+  accommodationBookingId           Int?
+  AccommodationBooking             AccommodationBooking?  @relation(fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+  Accommodation                    Accommodation?         @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  Comment                          Comment?               @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  Message                          Message?               @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  Offer                            Offer?                 @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  Question                         Question?              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User_Report_reportedUserIdToUser User?                  @relation("Report_reportedUserIdToUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  User_Report_reporterIdToUser     User                   @relation("Report_reporterIdToUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  Admin                            Admin?                 @relation(fields: [resolvedBy], references: [adminId])
+  Room                             Room?                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  TransportationBooking            TransportationBooking? @relation(fields: [transportationBookingId], references: [id], onDelete: Cascade)
+  TransportationListing            TransportationListing? @relation(fields: [transportationListingId], references: [id], onDelete: Cascade)
+
+  @@index([accommodationBookingId])
+  @@index([accommodationId])
+  @@index([commentId])
+  @@index([createdAt])
+  @@index([messageId])
+  @@index([offerId])
+  @@index([questionId])
+  @@index([reportableType])
+  @@index([reportedUserId])
+  @@index([reporterId])
+  @@index([roomId])
+  @@index([status])
+  @@index([transportationBookingId])
+  @@index([transportationListingId])
+}
+
 enum VoteType {
   UPVOTE
   DOWNVOTE
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportableType {
+  USER
+  TRANSPORTATION_LISTING
+  ACCOMMODATION
+  ROOM
+  REVIEW
+  QUESTION
+  COMMENT
+  MESSAGE
 }
