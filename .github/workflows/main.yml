@@ -42,9 +42,9 @@ jobs:
             # You might want to add notification here (Slack/Email)
           fi
           
-          echo "🔄 Restarting PM2 process with ID 4..."
-          pm2 restart 2 --update-env || {
-            echo "❌ Failed to restart PM2 process with ID 4. Starting the application..."
+          echo "🔄 Restarting PM2 process with ID 0..."
+          pm2 restart 0 --update-env || {
+            echo "❌ Failed to restart PM2 process with ID 0. Starting the application..."
             pm2 start npm --name "$APP_NAME" -- run start
           }
           
