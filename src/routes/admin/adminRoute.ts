@@ -2,6 +2,7 @@ import express from 'express';
 import { AdminController } from '../../controllers/admin/adminController';
 import { AdminModel } from '../../models/admin/adminModel';
 import { FileUploaderForS3 } from '../../utils/FileUploader';
+import adminMiddleware from '../../middleware/adminsMiddleware';
 
 const router = express.Router();
 const adminModel = new AdminModel();
@@ -9,7 +10,7 @@ const fileUploader = new FileUploaderForS3();
 const adminController = new AdminController(adminModel, fileUploader);
 
 // User Management routes
-router.get("/users/:id", adminController.getUserById.bind(adminController));
+router.get("/users/:id",adminMiddleware(["Manage Users"]), adminController.getUserById.bind(adminController));
 router.put("/users/:id/block", adminController.blockUser.bind(adminController));
 
 // Transportation Provider routes
@@ -23,3 +24,13 @@ router.get("/accommodationProviders/:providerId", adminController.getAccommodati
 router.put("/accommodationProviders/:providerId/status", adminController.updateAccommodationProviderStatus.bind(adminController));
 
 module.exports = router;
+
+//  permissions: [
+//     'Manage Users',
+//     'View Reports',
+//     'Manage Providers',
+//     'Edit Content',
+//     'Delete Content',
+//     'Access Analytics',
+//     'Super Admin'
+//   ],

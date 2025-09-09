@@ -66,8 +66,8 @@ export class transportationBookingController {
             const data = await this.transportationBookingModelInstance.changeBookingState(bookingId, status) 
               const notificationManager = container.resolve(FirebaseNotifier)
         notificationManager.sendNotification(data.travelerId,{
-          body: "you recevied a new offer",
-          title: `your offer to `
+          body: "Your ride booking status has been updated.",
+          title: `Ride Booking Status was changed to ${status}`
         })
 
             return res.status(200).json({
