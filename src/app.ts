@@ -111,9 +111,9 @@ app.get('/test-socket', (req, res) => {
   res.sendFile(__dirname + '/test-chat.html');
 });
 
-app.get('/', authMiddleware([]),(req, res) => {
+app.get('/', (req, res) => {
   res.json({
-    message: req.user
+    message: "hello"
   });
 });
 
