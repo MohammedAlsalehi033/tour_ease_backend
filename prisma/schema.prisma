@@ -409,23 +409,6 @@ model Vote {
   @@index([questionId])
 }
 
-model Report {
-  id             Int            @id @default(autoincrement())
-  reporterId     String
-  reason         String
-  status         ReportStatus   @default(PENDING)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  handlerId      String? // ID of the admin/moderator handling the report
-
-  // Relations
-  reporter       User           @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
-  handler        User?          @relation("HandledBy", fields: [handlerId], references: [id], onDelete: SetNull)
-
-  @@index([reporterId])
-  @@index([handlerId])
-  @@index([status])
-}
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model spatial_ref_sys {
