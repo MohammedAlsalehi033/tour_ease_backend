@@ -8,6 +8,7 @@ const reportModel = new ReportModel(prisma);
 export class ReportController {
   // Create a new report
   async createReport(req: Request, res: Response) {
+    console.log("createReport");
     try {
       const {
         reportableType,
@@ -26,7 +27,7 @@ export class ReportController {
       } = req.body;
 
       const reporterId = req.user.id;
-
+console.log(reporterId);
       // Validate required fields
       if (!reportableType || !reportReason || !description) {
         return res.status(400).json({

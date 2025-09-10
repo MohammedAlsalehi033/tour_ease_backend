@@ -4,6 +4,7 @@ import admin from '../services/firebase-admin';
 
 const authMiddleware = (requiredRoles : string[] = []) => { 
   return async (req, res, next) => {
+    console.log("authMiddleware");
     try {
       const token = req.header('Authorization')?.replace('Bearer ', '');
       if (!token) {

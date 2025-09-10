@@ -1,12 +1,9 @@
 import express from 'express';
 import { ReportController } from '../../controllers/report/reportController';
-import { body, param, query, validationResult } from 'express-validator';
 import authMiddleware from '../../middleware/authMiddleware';
-import { PrismaClient } from '@prisma/client';
 
 const router = express.Router();
 const reportController = new ReportController();
-const prisma = new PrismaClient();
 
 
 // Routes
@@ -14,64 +11,64 @@ const prisma = new PrismaClient();
 // Create a new report (authenticated users only)
 router.post(
   '/',
-  authMiddleware,
+  authMiddleware(),
 
-  reportController.createReport
+  reportController.createReport.bind(reportController)
 );
 
 // Get all reports (admin only)
 router.get(
   '/',
-  authMiddleware,
+  authMiddleware(),
  
-  reportController.getAllReports
+  reportController.getAllReports.bind(reportController)
 );
 
 // Get report statistics (admin only)
 router.get(
   '/statistics',
-  authMiddleware,
-  reportController.getReportStatistics
+  authMiddleware(),
+  reportController.getReportStatistics.bind(reportController)
 );
 
 // Get reports by type (admin only)
 router.get(
   '/type/:type',
-  authMiddleware,
+  authMiddleware(),
  
-  reportController.getReportsByType
+  reportController.getReportsByType.bind(reportController)
 );
 
 // Get reports by reported user ID (admin only)
 router.get(
   '/user/:userId',
-  authMiddleware,
+  authMiddleware(),
  
-  reportController.getReportsByReportedUser
+  reportController.getReportsByReportedUser.bind(reportController)
 );
 
 // Get a specific report by ID (admin only)
 router.get(
   '/:id',
-  authMiddleware,
+  authMiddleware(),
 
-  reportController.getReportById
+  reportController.getReportById.bind(reportController)
 );
 
 // Update report status (admin only)
 router.patch(
   '/:id/status',
-  authMiddleware,
+  authMiddleware(),
   
-  reportController.updateReportStatus
+  reportController.updateReportStatus.bind(reportController)
 );
 
 // Delete a report (admin only)
 router.delete(
   '/:id',
-  authMiddleware,
+  authMiddleware(),
  
-  reportController.deleteReport
+  reportController.deleteReport.bind(reportController)
 );
 
 // User routes (authenticated users)
@@ -79,9 +76,9 @@ router.delete(
 // Get user's own reports
 router.get(
   '/my-reports',
-  authMiddleware,
+  authMiddleware(),
   
-  reportController.getReportsByReporter
+  reportController.getReportsByReporter.bind(reportController)    
 );
 
 module.exports = router;
