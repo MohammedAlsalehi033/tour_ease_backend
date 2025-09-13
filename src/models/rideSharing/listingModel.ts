@@ -117,75 +117,75 @@ async searchNearbyListings(
       WHERE 
     `;
 
-    // // Search condition for starting point
-    // query += `
-    //   ST_DWithin(
-    //     ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
-    //     ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography,
-    //     ${radiusKm * 1000}
-    //   )
-    // `;
+    // Search condition for starting point
+    query += `
+      ST_DWithin(
+        ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography,
+        ${radiusKm * 1000}
+      )
+    `;
 
-    // // Add search condition for end point if provided
-    // if (endLat && endLng) {
-    //   query += `
-    //     AND ST_DWithin(
-    //       ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
-    //       ST_SetSRID(ST_MakePoint(tl."endLocationLng", tl."endLocationLat"), 4326)::geography,
-    //       ${radiusKm * 1000}
-    //     )
-    //   `;
-    // }
+    // Add search condition for end point if provided
+    if (endLat && endLng) {
+      query += `
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(tl."endLocationLng", tl."endLocationLat"), 4326)::geography,
+          ${radiusKm * 1000}
+        )
+      `;
+    }
 
-    // query += `
-    //   AND tl."status" = 'active'
-    //   AND tl."departureTime" > NOW()
-    //   AND tl."seatsAvailable" >= ${minSeats}
-    // `;
+    query += `
+      AND tl."status" = 'active'
+      AND tl."departureTime" > NOW()
+      AND tl."seatsAvailable" >= ${minSeats}
+    `;
 
     const params: any[] = [];
-    // let paramIndex = 1;
+    let paramIndex = 1;
 
-    // if (maxPrice !== undefined) {
-    //   query += ` AND tl."pricePerSeat" <= $${paramIndex}`;
-    //   params.push(maxPrice);
-    //   paramIndex++;
-    // }
+    if (maxPrice !== undefined) {
+      query += ` AND tl."pricePerSeat" <= $${paramIndex}`;
+      params.push(maxPrice);
+      paramIndex++;
+    }
 
-    // if (departureAfter !== undefined) {
-    //   query += ` AND tl."departureTime" >= $${paramIndex}`;
-    //   params.push(departureAfter);
-    //   paramIndex++;
-    // }
+    if (departureAfter !== undefined) {
+      query += ` AND tl."departureTime" >= $${paramIndex}`;
+      params.push(departureAfter);
+      paramIndex++;
+    }
 
-    // if (departureBefore !== undefined) {
-    //   query += ` AND tl."departureTime" <= $${paramIndex}`;
-    //   params.push(departureBefore);
-    //   paramIndex++;
-    // }
+    if (departureBefore !== undefined) {
+      query += ` AND tl."departureTime" <= $${paramIndex}`;
+      params.push(departureBefore);
+      paramIndex++;
+    }
 
-    // // Order by combined relevance if both start and end points provided
-    // if (endLat && endLng) {
-    //   query += `
-    //     ORDER BY (
-    //       ST_Distance(
-    //         ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
-    //         ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
-    //       ) / 1000 +
-    //       ST_Distance(
-    //         ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
-    //         ST_SetSRID(ST_MakePoint(tl."endLocationLng", tl."endLocationLat"), 4326)::geography
-    //       ) / 1000
-    //     ) ASC
-    //   `;
-    // } else {
-    //   query += `
-    //     ORDER BY ST_Distance(
-    //       ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
-    //       ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
-    //     ) / 1000 ASC
-    //   `;
-    // }
+    // Order by combined relevance if both start and end points provided
+    if (endLat && endLng) {
+      query += `
+        ORDER BY (
+          ST_Distance(
+            ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
+          ) / 1000 +
+          ST_Distance(
+            ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(tl."endLocationLng", tl."endLocationLat"), 4326)::geography
+          ) / 1000
+        ) ASC
+      `;
+    } else {
+      query += `
+        ORDER BY ST_Distance(
+          ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(tl."startLocationLng", tl."startLocationLat"), 4326)::geography
+        ) / 1000 ASC
+      `;
+    }
 
     const results = await prisma.$queryRawUnsafe(query, ...params);
     
