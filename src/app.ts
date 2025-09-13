@@ -15,6 +15,7 @@ const transportationBookingRouter = require("./routes/rideSharing/rideBookingRou
 const rideSharingListingRoutes = require('./routes/rideSharing/listingRoute/listingRoute');
 const AIPlannerRoute = require('./routes/planner/plannerRouter');
 const reportRoutes = require('./routes/report/reportRoutes');
+const reviewRoutes = require('./routes/review/reviewRoutes');
 const superAdmin = require("./routes/admin/superAdmin/superAdmin");
 
 
@@ -100,6 +101,7 @@ app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
 app.use('/api', AIPlannerRoute);
 app.use('/api/reports', reportRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
 
