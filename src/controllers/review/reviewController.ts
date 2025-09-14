@@ -48,19 +48,19 @@ export class ReviewController {
         });
       }
 
-      // Validate that the reviewable item exists and user has access to review it
-      const hasAccess = await this.validateReviewAccess(
-        reviewerId,
-        reviewableType,
-        parseInt(reviewableId)
-      );
+      // // Validate that the reviewable item exists and user has access to review it
+      // const hasAccess = await this.validateReviewAccess(
+      //   reviewerId,
+      //   reviewableType,
+      //   parseInt(reviewableId)
+      // );
 
-      if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have permission to review this item',
-        });
-      }
+      // if (!hasAccess) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message: 'You do not have permission to review this item',
+      //   });
+      // }
 
       const review = await reviewModel.createItem({
         reviewerId,
