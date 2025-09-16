@@ -123,32 +123,44 @@ export default class ListingController {
 
       const resultWithSignedUrls = await Promise.all(
         results.map(async (listing) => {
-          console.log(listing.provider.vehicleMediaUrls && listing.provider.vehicleMediaUrls.length > 0)
-          if (listing.provider.vehicleMediaUrls && listing.provider.vehicleMediaUrls.length > 0) {
-            const licenseMmediaUrlsSignedUrls = await Promise.all(
-              listing.provider.licenseMmediaUrls.map((url) => 
-                this.fileUploaderForS3.myGetSignedUrl(url)
-              )
-            );
-            const vehicleMediaUrlsSignedUrls = await Promise.all(
-              listing.provider.vehicleMediaUrls.map((url) =>
-                this.fileUploaderForS3.myGetSignedUrl(url)
-              )
-            );
+          const provider = listing.provider || {};
+          const user = provider.user || {};
 
-            console.log(vehicleMediaUrlsSignedUrls, licenseMmediaUrlsSignedUrls)
-            return {
-              ...listing,
-              provider: {
-                ...listing.provider,
-                licenseMmediaUrls: licenseMmediaUrlsSignedUrls,
-                vehicleMediaUrls: vehicleMediaUrlsSignedUrls,
+          const [
+            licenseMmediaUrlsSignedUrls,
+            vehicleMediaUrlsSignedUrls,
+            listingMediaSignedUrls,
+            userMediaSignedUrls,
+          ] = await Promise.all([
+            Array.isArray(provider.licenseMmediaUrls) && provider.licenseMmediaUrls.length > 0
+              ? Promise.all(provider.licenseMmediaUrls.map((url) => this.fileUploaderForS3.myGetSignedUrl(url)))
+              : Promise.resolve(provider.licenseMmediaUrls || []),
+            Array.isArray(provider.vehicleMediaUrls) && provider.vehicleMediaUrls.length > 0
+              ? Promise.all(provider.vehicleMediaUrls.map((url) => this.fileUploaderForS3.myGetSignedUrl(url)))
+              : Promise.resolve(provider.vehicleMediaUrls || []),
+            Array.isArray(listing.mediaUrls) && listing.mediaUrls.length > 0
+              ? Promise.all(listing.mediaUrls.map((url) => this.fileUploaderForS3.myGetSignedUrl(url)))
+              : Promise.resolve(listing.mediaUrls || []),
+            Array.isArray(user.mediaUrls) && user.mediaUrls.length > 0
+              ? Promise.all(user.mediaUrls.map((url) => this.fileUploaderForS3.myGetSignedUrl(url)))
+              : Promise.resolve(user.mediaUrls || []),
+          ]);
+
+          return {
+            ...listing,
+            mediaUrls: listingMediaSignedUrls,
+            provider: {
+              ...provider,
+              licenseMmediaUrls: licenseMmediaUrlsSignedUrls,
+              vehicleMediaUrls: vehicleMediaUrlsSignedUrls,
+              user: {
+                ...user,
+                mediaUrls: userMediaSignedUrls,
               },
-            };
-          }
-          return listing;
+            },
+          };
         })
-      )
+      );
 
       
       
@@ -186,9 +198,38 @@ export default class ListingController {
         });
       }
 
+      const provider = listing.provider as any;
+      const [
+        licenseMmediaUrlsSignedUrls,
+        vehicleMediaUrlsSignedUrls,
+        listingMediaSignedUrls,
+      ] = await Promise.all([
+        Array.isArray(provider?.licenseMmediaUrls) && provider.licenseMmediaUrls.length > 0
+          ? Promise.all(provider.licenseMmediaUrls.map((url: string) => this.fileUploaderForS3.myGetSignedUrl(url)))
+          : Promise.resolve(provider?.licenseMmediaUrls || []),
+        Array.isArray(provider?.vehicleMediaUrls) && provider.vehicleMediaUrls.length > 0
+          ? Promise.all(provider.vehicleMediaUrls.map((url: string) => this.fileUploaderForS3.myGetSignedUrl(url)))
+          : Promise.resolve(provider?.vehicleMediaUrls || []),
+        Array.isArray((listing as any).mediaUrls) && (listing as any).mediaUrls.length > 0
+          ? Promise.all(((listing as any).mediaUrls as string[]).map((url: string) => this.fileUploaderForS3.myGetSignedUrl(url)))
+          : Promise.resolve((listing as any).mediaUrls || []),
+      ]);
+
+      const signedListing = {
+        ...(listing as any),
+        mediaUrls: listingMediaSignedUrls,
+        provider: provider
+          ? {
+              ...provider,
+              licenseMmediaUrls: licenseMmediaUrlsSignedUrls,
+              vehicleMediaUrls: vehicleMediaUrlsSignedUrls,
+            }
+          : provider,
+      };
+
       return res.status(200).json({
         success: true,
-        data: listing,
+        data: signedListing,
       });
     } catch (error) {
       console.error("Error in getListingById controller:", error);

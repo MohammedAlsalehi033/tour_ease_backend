@@ -48,12 +48,18 @@ async searchNearbyRequests(
   endLat?: number,
   endLng?: number,
   radiusKm: number = 30
-): Promise<NearbyTransportationRequest[]> {
+): Promise<any[]> {
   try {
-    // Base query with selection
+    // Base query with selection including user fields
     let query = `
       SELECT
         tr.*,
+        u.id as "user_id",
+        u.email as "user_email",
+        u.username as "user_username",
+        u."mediaUrls" as "user_mediaUrls",
+        u."accountStatus" as "user_accountStatus",
+        u."createdAt" as "user_createdAt",
         ST_Distance(
           ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
           ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography
@@ -73,6 +79,7 @@ async searchNearbyRequests(
     // From clause
     query += `
       FROM "TransportationRequest" tr
+      JOIN "User" u ON tr."travelerId" = u."id"
       WHERE ST_DWithin(
         ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
         ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography,
@@ -117,8 +124,22 @@ async searchNearbyRequests(
       `;
     }
 
-    const nearbyRequests = await prisma.$queryRawUnsafe(query);
-    return nearbyRequests;
+    const rows = await prisma.$queryRawUnsafe(query);
+    const formatted = rows.map((row: any) => {
+      const { user_id, user_email, user_username, user_mediaUrls, user_accountStatus, user_createdAt, ...rest } = row;
+      return {
+        ...rest,
+        user: {
+          id: user_id,
+          email: user_email,
+          username: user_username,
+          mediaUrls: user_mediaUrls,
+          accountStatus: user_accountStatus,
+          createdAt: user_createdAt,
+        },
+      };
+    });
+    return formatted;
   } catch (error) {
     console.error("Error searching nearby requests:", error);
     throw error; 

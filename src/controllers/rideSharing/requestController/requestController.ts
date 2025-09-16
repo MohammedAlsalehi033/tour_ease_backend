@@ -2,12 +2,15 @@ import { container } from 'tsyringe';
 import RequestModel from '../../../models/rideSharing/requestModel';
 import { Request, Response } from 'express';
 import { FirebaseNotifier } from '../../../utils/firebaseNotficationsManger';
+import { FileUploaderForS3 } from '../../../utils/FileUploader';
 
 export default class RequestController {
   private requestModel: RequestModel;
+  private fileUploaderForS3: FileUploaderForS3;
 
   constructor(requestModel: RequestModel) {
     this.requestModel = requestModel;
+    this.fileUploaderForS3 = new FileUploaderForS3();
   }
 
   async createRequest(req: Request, res: Response) {
@@ -82,11 +85,22 @@ export default class RequestController {
         latEnd && lngEnd ? Number(lngEnd) : undefined,
         radiusKm ? Number(radiusKm) : 30
       );
-    
+      const resultsWithSigned = await Promise.all(
+        results.map(async (request: any) => {
+          if (request?.user?.mediaUrls?.length > 0) {
+            const signed = await Promise.all(
+              request.user.mediaUrls.map((url: string) => this.fileUploaderForS3.myGetSignedUrl(url))
+            );
+            return { ...request, user: { ...request.user, mediaUrls: signed } };
+          }
+          return request;
+        })
+      );
+
       return res.status(200).json({
         success: true,
-        count: results.length,
-        data: results
+        count: resultsWithSigned.length,
+        data: resultsWithSigned
       });
     } catch (error) {
       console.error("Error in findNearbyRequests controller:", error);
