@@ -298,9 +298,21 @@ async getAllUsers(
   
       const fileUploader = new FileUploaderForS3();
       
+      // Delete old profile picture from S3 if it exists
+      if (user.mediaUrls && user.mediaUrls.length > 0) {
+        try {
+          await fileUploader.deleteFile(user.mediaUrls[0]);
+        } catch (deleteError) {
+          console.warn('Failed to delete old profile picture:', deleteError);
+          // Continue with upload even if deletion fails
+        }
+      }
       
+      // Upload new profile picture
       const uploadResult = await fileUploader.uploadFile(file, "profilePicture", user.username);
       const updatedMediaUrls = [uploadResult.key];
+      
+      // Update user with new profile picture (replacing the old one)
       const updatedUser = await prisma.user.update({
         where: {
           id: userId,
