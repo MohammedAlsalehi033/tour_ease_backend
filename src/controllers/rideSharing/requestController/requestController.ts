@@ -52,8 +52,18 @@ export default class RequestController {
         Number(budget)
       );
 
-      
-
+      // Notify traveler that their request was created
+      try {
+        const notifier = container.resolve(FirebaseNotifier);
+        await notifier.sendNotification(travelerId, {
+          title: "Request Created",
+          body: `Your ride request from ${startLocationText} to ${endLocationText} was posted.`,
+          type: 'REQUEST'
+        });
+      } catch (notifyError) {
+        // Log only — do not fail the request on notification issues
+        console.error('Failed to send request creation notification:', notifyError);
+      }
       return res.status(201).json({
         success: true,
         data: newRequest

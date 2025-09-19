@@ -103,7 +103,8 @@ export class OfferController {
         const notificationsManger = container.resolve(FirebaseNotifier)
               notificationsManger.sendNotification(recipientId, {
                 title: "New Offer",
-                body: `You have a New Offer for Ride /n ${message}`,
+                body: `You have a new ride offer. Message: ${message}`,
+                type: 'OFFER'
               });
             
 
@@ -131,11 +132,13 @@ export class OfferController {
   const notificationManager = container.resolve(FirebaseNotifier)
   notificationManager.sendNotification(result.offer.senderId,{
     body: "Transportation offer was accepted",
-    title: `the transportation offer made at ${result.offer.createdAt}`
+    title: `Offer accepted (${new Date(result.offer.createdAt).toLocaleString()})`,
+    type: 'OFFER'
   })
   notificationManager.sendNotification(result.offer.recipientId,{
     body: "Transportation offer was accepted",
-    title: `the transportation offer made at ${result.offer.createdAt}`
+    title: `Offer accepted (${new Date(result.offer.createdAt).toLocaleString()})`,
+    type: 'OFFER'
   })
       
       // const notificationsManger = container.resolve(FirebaseNotifier)
@@ -165,6 +168,27 @@ export class OfferController {
     try {
       const offerId = parseInt(req.params.id);
       const updatedOffer = await this.offerModel.rejectOffer(offerId);
+
+      // Notify both parties
+      try {
+        const notificationManager = container.resolve(FirebaseNotifier);
+        if (updatedOffer?.senderId) {
+          notificationManager.sendNotification(updatedOffer.senderId, {
+            title: 'Offer Rejected',
+            body: 'Your transportation offer was rejected.',
+            type: 'OFFER'
+          });
+        }
+        if (updatedOffer?.recipientId) {
+          notificationManager.sendNotification(updatedOffer.recipientId, {
+            title: 'Offer Rejected',
+            body: 'A transportation offer you received was rejected.',
+            type: 'OFFER'
+          });
+        }
+      } catch (notifyError) {
+        console.error('Failed to send offer rejection notifications:', notifyError);
+      }
 
       res.status(200).json({
         success: true,

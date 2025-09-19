@@ -67,7 +67,8 @@ export class transportationBookingController {
               const notificationManager = container.resolve(FirebaseNotifier)
         notificationManager.sendNotification(data.travelerId,{
           body: "Your ride booking status has been updated.",
-          title: `Ride Booking Status was changed to ${status}`
+          title: `Ride booking status changed to ${status}`,
+          type: 'BOOKING'
         })
 
             return res.status(200).json({

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express'; // Assuming you use Express for types
 import { SuperAdminModel } from "../../../models/admin/superAdmin/superAdminModel";
 import { User } from '@prisma/client';
+import { container } from 'tsyringe';
+import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
 
 export class SuperAdminController {
     private superAdminModel: SuperAdminModel;
@@ -38,6 +40,17 @@ export class SuperAdminController {
         try {
             const newAdmin = await this.superAdminModel.addAdmin(userId);
             res.status(201).json({ message: "Admin added successfully", data: newAdmin });
+            // Notify user of role change
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(userId, {
+                    title: 'Role Updated',
+                    body: 'You have been granted admin privileges.',
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to send admin add notification:', notifyError);
+            }
         } catch (error) {
             console.error("Error adding new admin:", error);
             // Provide more specific feedback to the client based on the error from the model
@@ -71,6 +84,17 @@ export class SuperAdminController {
         try {
             const updatedUser = await this.superAdminModel.removeAdmin(id);
             res.status(200).json({ message: "Admin role removed successfully", data: updatedUser });
+            // Notify user of role removal
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(id, {
+                    title: 'Role Updated',
+                    body: 'Your admin privileges have been removed.',
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to send admin removal notification:', notifyError);
+            }
         } catch (error) {
             console.error("Error removing admin:", error);
             if (error instanceof Error && error.message.includes("not an admin")) {
@@ -96,6 +120,17 @@ export class SuperAdminController {
         try {
             const updatedUser = await this.superAdminModel.toggleUserStatus(id);
             res.status(200).json({ message: `User status changed to ${updatedUser.accountStatus}`, data: updatedUser });
+            // Notify user about status change
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(id, {
+                    title: 'Account Status Changed',
+                    body: `Your account status is now ${updatedUser.accountStatus}.`,
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to send account status change notification:', notifyError);
+            }
         } catch (error) {
             console.error("Error toggling user status:", error);
             if (error instanceof Error && error.message.includes("not found")) {

@@ -1,6 +1,8 @@
 import { AdminModel } from "../../models/admin/adminModel";
 import { FileUploaderForS3 } from "../../utils/FileUploader";
 import { Request, Response } from 'express';
+import { container } from 'tsyringe';
+import { FirebaseNotifier } from "../../utils/firebaseNotficationsManger";
 
 export class AdminController {
     private adminModel: AdminModel;
@@ -36,6 +38,17 @@ export class AdminController {
                  return res.status(400).json({ success: false, message: "User ID parameter is required" });
             }
             const user = await this.adminModel.blockUser(id);
+            // Notify the affected user
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(id, {
+                    title: 'Account Blocked',
+                    body: 'An admin has blocked your account. Contact support if this is an error.',
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to send block notification:', notifyError);
+            }
             res.status(200).json({ success: true, message: "User blocked successfully", data: user });
         } catch (error: any) {
              console.error("Error in AdminController blockUser:", error);
@@ -151,6 +164,17 @@ export class AdminController {
                 message: `Transportation provider status updated to ${actualStatus}`,
                 data: updatedProvider
             });
+            // Notify provider
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(providerId, {
+                    title: 'Transportation Provider Status Updated',
+                    body: `Your provider application status is now ${actualStatus}.`,
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to notify transportation provider status change:', notifyError);
+            }
         } catch (error: any) {
             res.status(500).json({
                 success: false,
@@ -256,6 +280,17 @@ export class AdminController {
                 message: `Accommodation provider status updated to ${actualStatus}`,
                 data: updatedUser
             });
+            // Notify provider
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendNotification(providerId, {
+                    title: 'Accommodation Provider Status Updated',
+                    body: `Your provider application status is now ${actualStatus}.`,
+                    type: 'ADMIN'
+                });
+            } catch (notifyError) {
+                console.error('Failed to notify accommodation provider status change:', notifyError);
+            }
         } catch (error: any) {
             res.status(500).json({
                 success: false,

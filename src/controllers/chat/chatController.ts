@@ -135,6 +135,7 @@ export class MessageController {
         notificationsManger.sendNotification(receiverId, {
           title: "New Message",
           body: `You have received a new message from ${user.username}`,
+          type: 'CHAT'
         });
       }
       
