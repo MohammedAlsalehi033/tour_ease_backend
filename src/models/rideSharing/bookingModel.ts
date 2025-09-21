@@ -10,7 +10,7 @@ export class transportationBookingModel {
         where: {
           travelerId: userId,
           status: {
-            in: ["active", "pending", "completed"],
+            in: ["active", "pending", "complete", "cancelled"],
           },
         },
         // You might want to include related data, for example:
