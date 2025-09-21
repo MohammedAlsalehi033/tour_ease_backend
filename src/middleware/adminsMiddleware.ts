@@ -43,7 +43,7 @@ const adminMiddleware = (requiredPermissions: string[] = []) => {
           message: 'Account is not active'
         });
       }
-
+      console.log("myAdmin", myAdmin);
       if (requiredPermissions.length > 0) {
         const userPermissionNames = myAdmin.permissions;
         const hasRequiredPermission = requiredPermissions.every(permission => userPermissionNames.includes(permission));

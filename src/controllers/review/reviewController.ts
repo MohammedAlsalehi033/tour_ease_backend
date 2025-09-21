@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaReviewModel } from '../../models/review/reviewModel';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Review } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const reviewModel = new PrismaReviewModel();
@@ -62,20 +62,58 @@ export class ReviewController {
       //   });
       // }
 
-      const review = await reviewModel.createItem({
-        reviewerId,
-        reviewableType,
-        reviewableId: parseInt(reviewableId),
-        rating,
-        comment,
-      });
+      let reviews: Review[] = [];
+      
+      if (reviewableType === 'TRANSPORTATION_BOOKING') {
+        // First, create the booking review
+        const bookingReview = await reviewModel.createItem({
+          reviewerId,
+          reviewableType: 'TRANSPORTATION_BOOKING',
+          reviewableId: parseInt(reviewableId),
+          rating,
+          comment,
+        });
+        reviews.push(bookingReview);
+
+        // Then, create a review for the driver
+        const booking = await prisma.transportationBooking.findUnique({
+          where: { id: parseInt(reviewableId) },
+          include: {
+            transportationListing: {
+              include: {
+                provider: true
+              }
+            }
+          }
+        });
+
+        if (booking && booking.transportationListing?.provider) {
+          const driverReview = await reviewModel.createItem({
+            reviewerId,
+            reviewableType: 'TRANSPORTATION_PROVIDER',
+            reviewableId: parseInt(booking.transportationListing.providerId),
+            rating,
+            comment,
+          });
+          reviews.push(driverReview);
+        }
+      } else {
+        const review = await reviewModel.createItem({
+          reviewerId,
+          reviewableType,
+          reviewableId: parseInt(reviewableId),
+          rating,
+          comment,
+        });
+        reviews.push(review);
+      }
 
       res.status(201).json({
         success: true,
         message: 'Review created successfully',
-        data: review,
+        data: reviews.length === 1 ? reviews[0] : reviews,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating review:', error);
       res.status(500).json({
         success: false,
@@ -141,6 +179,35 @@ export class ReviewController {
       const { reviewableType, reviewableId } = req.params;
       const { page = 1, limit = 10 } = req.query;
 
+      // Special handling for driver stats
+      if (reviewableType === 'TRANSPORTATION_PROVIDER') {
+        // Get provider's reviews
+        const reviews = await reviewModel.getReviewsByReviewableType(
+          'TRANSPORTATION_PROVIDER',
+          parseInt(reviewableId),
+          parseInt(page as string),
+          parseInt(limit as string)
+        );
+
+        const stats = await reviewModel.getReviewStats(
+          'TRANSPORTATION_PROVIDER',
+          parseInt(reviewableId)
+        );
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            reviews,
+            stats
+          },
+          pagination: {
+            page: parseInt(page as string),
+            limit: parseInt(limit as string),
+            total: reviews.length,
+          },
+        });
+      }
+
       const reviews = await reviewModel.getReviewsByReviewableType(
         reviewableType,
         parseInt(reviewableId),
@@ -165,7 +232,7 @@ export class ReviewController {
           total: reviews.length,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching reviews by item:', error);
       res.status(500).json({
         success: false,

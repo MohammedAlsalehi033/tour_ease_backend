@@ -144,6 +144,10 @@ export class PrismaReviewModel extends BaseReviewModel<Review> {
       case "TRANSPORTATION_LISTING":
         reviewData.transportationListingId = data.reviewableId;
         break;
+      case "TRANSPORTATION_PROVIDER":
+        // No special field needed for transportation provider reviews
+        // The reviewableType and reviewableId are sufficient
+        break;
       case "ACCOMMODATION":
         reviewData.accommodationId = data.reviewableId;
         break;
@@ -366,6 +370,10 @@ export class PrismaReviewModel extends BaseReviewModel<Review> {
     switch (reviewableType) {
       case "TRANSPORTATION_LISTING":
         whereClause.transportationListingId = reviewableId;
+        break;
+      case "TRANSPORTATION_PROVIDER":
+        // For transportation provider reviews, we don't need to add any additional conditions
+        // since the reviewableType and reviewableId are sufficient
         break;
       case "ACCOMMODATION":
         whereClause.accommodationId = reviewableId;
