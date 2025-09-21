@@ -79,7 +79,7 @@ export class ReviewController {
         const booking = await prisma.transportationBooking.findUnique({
           where: { id: parseInt(reviewableId) },
           include: {
-            transportationListing: {
+            listing: {
               include: {
                 provider: true
               }
@@ -87,11 +87,11 @@ export class ReviewController {
           }
         });
 
-        if (booking && booking.transportationListing?.provider) {
+        if (booking && booking.listing?.provider) {
           const driverReview = await reviewModel.createItem({
             reviewerId,
             reviewableType: 'TRANSPORTATION_PROVIDER',
-            reviewableId: parseInt(booking.transportationListing.providerId),
+            reviewableId: parseInt(booking.listing.providerId),
             rating,
             comment,
           });
@@ -189,10 +189,20 @@ export class ReviewController {
           include: {
             bookings: {
               where: {
-                status: 'completed', // Only consider completed bookings
+                status: 'completed' // Only consider completed bookings
               },
               include: {
-                reviews: true
+                reviews: {
+                  include: {
+                    reviewer: {
+                      select: {
+                        id: true,
+                        username: true,
+                        mediaUrls: true
+                      }
+                    }
+                  }
+                }
               }
             }
           }
