@@ -181,24 +181,48 @@ export class ReviewController {
 
       // Special handling for driver stats
       if (reviewableType === 'TRANSPORTATION_PROVIDER') {
-        // Get provider's reviews
-        const reviews = await reviewModel.getReviewsByReviewableType(
-          'TRANSPORTATION_PROVIDER',
-          parseInt(reviewableId),
-          parseInt(page as string),
-          parseInt(limit as string)
-        );
+        // First get all listings for this provider
+        const listings = await prisma.transportationListing.findMany({
+          where: {
+            providerId: reviewableId
+          },
+          include: {
+            bookings: {
+              where: {
+                status: 'completed', // Only consider completed bookings
+              },
+              include: {
+                reviews: true
+              }
+            }
+          }
+        });
 
-        const stats = await reviewModel.getReviewStats(
-          'TRANSPORTATION_PROVIDER',
-          parseInt(reviewableId)
-        );
+        // Collect all reviews from completed bookings
+        const reviews = listings.flatMap(listing => 
+          listing.bookings.flatMap(booking => booking.reviews)
+        ).slice((parseInt(page as string) - 1) * parseInt(limit as string), parseInt(page as string) * parseInt(limit as string));
+
+        // Calculate stats
+        const totalReviews = reviews.length;
+        const sumRatings = reviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalReviews > 0 ? sumRatings / totalReviews : 0;
+
+        // Calculate rating distribution
+        const ratingDistribution = reviews.reduce((acc, review) => {
+          acc[review.rating] = (acc[review.rating] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
 
         return res.status(200).json({
           success: true,
           data: {
             reviews,
-            stats
+            stats: {
+              totalReviews,
+              averageRating,
+              ratingDistribution
+            }
           },
           pagination: {
             page: parseInt(page as string),
