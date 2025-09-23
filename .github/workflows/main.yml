@@ -38,7 +38,7 @@ jobs:
           echo "🏗️ Building application..."
           # Continue even if build fails (but log the error)
           if ! npm run build; then
-            echo "⚠️ Build completed with errors - proceeding with existing build"
+            echo "⚠️ Build complete with errors - proceeding with existing build"
             # You might want to add notification here (Slack/Email)
           fi
           
@@ -49,7 +49,7 @@ jobs:
           }
           
           pm2 save
-          echo "✅ Deployment procedure completed!"
+          echo "✅ Deployment procedure complete!"
           echo "📊 Current PM2 status:"
           pm2 list
           EOF

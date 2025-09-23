@@ -8,8 +8,8 @@ The Review model supports multiple reviewable types:
 - **TRANSPORTATION_LISTING**: Reviews for transportation service listings
 - **ACCOMMODATION**: Reviews for accommodation providers
 - **ROOM**: Reviews for specific rooms
-- **TRANSPORTATION_BOOKING**: Reviews for completed transportation bookings
-- **ACCOMMODATION_BOOKING**: Reviews for completed accommodation bookings
+- **TRANSPORTATION_BOOKING**: Reviews for complete transportation bookings
+- **ACCOMMODATION_BOOKING**: Reviews for complete accommodation bookings
 
 ## API Endpoints
 
@@ -46,7 +46,7 @@ Creates a new review for a bookable item.
 - `reviewableId`: Required, must be a valid ID for the reviewable type
 - `rating`: Required, must be between 1 and 5
 - `comment`: Required, must be a non-empty string
-- User must have completed a booking for the item being reviewed
+- User must have complete a booking for the item being reviewed
 - User can only review each item once
 
 **Response:**
@@ -311,9 +311,9 @@ GET /api/reviews/search?query=excellent&page=1&limit=10
 
 ## Business Rules
 
-1. **Review Access Control**: Users can only review items they have completed bookings for
+1. **Review Access Control**: Users can only review items they have complete bookings for
 2. **One Review Per Item**: Each user can only create one review per reviewable item
-3. **Completed Bookings Only**: Reviews can only be created for completed bookings
+3. **complete Bookings Only**: Reviews can only be created for complete bookings
 4. **Rating Validation**: Ratings must be integers between 1 and 5
 5. **Ownership**: Users can only update/delete their own reviews (except admins)
 6. **Authentication**: All endpoints require valid authentication

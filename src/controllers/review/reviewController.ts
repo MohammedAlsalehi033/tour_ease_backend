@@ -189,7 +189,7 @@ export class ReviewController {
           include: {
             bookings: {
               where: {
-                status: 'completed' // Only consider completed bookings
+                status: 'complete' // Only consider complete bookings
               },
               include: {
                 reviews: {
@@ -208,7 +208,7 @@ export class ReviewController {
           }
         });
 
-        // Collect all reviews from completed bookings
+        // Collect all reviews from complete bookings
         const reviews = listings.flatMap(listing => 
           listing.bookings.flatMap(booking => booking.reviews)
         ).slice((parseInt(page as string) - 1) * parseInt(limit as string), parseInt(page as string) * parseInt(limit as string));
@@ -532,7 +532,7 @@ export class ReviewController {
             where: {
               travelerId: userId,
               transportationListingId: reviewableId,
-              status: 'completed', // Only allow reviews for completed bookings
+              status: 'complete', // Only allow reviews for complete bookings
             },
           });
           return !!booking;
@@ -545,7 +545,7 @@ export class ReviewController {
               room: {
                 accommodationId: reviewableId,
               },
-              status: 'completed', // Only allow reviews for completed bookings
+              status: 'complete', // Only allow reviews for complete bookings
             },
           });
           return !!accommodationBooking;
@@ -556,7 +556,7 @@ export class ReviewController {
             where: {
               travelerId: userId,
               roomId: reviewableId,
-              status: 'completed', // Only allow reviews for completed bookings
+              status: 'complete', // Only allow reviews for complete bookings
             },
           });
           return !!roomBooking;
@@ -567,7 +567,7 @@ export class ReviewController {
             where: {
               id: reviewableId,
               travelerId: userId,
-              status: 'completed', // Only allow reviews for completed bookings
+              status: 'complete', // Only allow reviews for complete bookings
             },
           });
           return !!transportBooking;
@@ -578,7 +578,7 @@ export class ReviewController {
             where: {
               id: reviewableId,
               travelerId: userId,
-              status: 'completed', // Only allow reviews for completed bookings
+              status: 'complete', // Only allow reviews for complete bookings
             },
           });
           return !!accBooking;
