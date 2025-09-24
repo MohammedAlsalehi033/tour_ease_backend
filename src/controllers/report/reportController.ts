@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { ReportModel } from '../../models/report/reportModel';
 import { PrismaClient } from '@prisma/client';
+import { container } from 'tsyringe';
+import { FirebaseNotifier } from '../../utils/firebaseNotficationsManger';
 
 const prisma = new PrismaClient();
 const reportModel = new ReportModel(prisma);
@@ -122,6 +124,22 @@ console.log(reporterId);
         transportationBookingId,
         accommodationBookingId,
       });
+
+      // Notify reporter that report was submitted successfully
+      try {
+        const notifier = container.resolve(FirebaseNotifier);
+        await notifier.sendContextualNotification(reporterId, 'REPORT_SUBMITTED', {
+          title: 'Report Submitted Successfully',
+          body: `Thank you for reporting the ${reportableType.toLowerCase().replace('_', ' ')}. Our team will review your report and take appropriate action if needed.`,
+          priority: 'normal',
+          actionRequired: false,
+          actionUrl: '/reports/my-reports',
+          entityType: 'report',
+          entityId: report.id
+        });
+      } catch (notifyError) {
+        console.error('Failed to send report submission notification:', notifyError);
+      }
 
       res.status(201).json({
         success: true,
@@ -247,6 +265,41 @@ console.log(reporterId);
         resolvedBy,
         resolutionNotes
       );
+
+      // Notify the reporter about the status update
+      try {
+        const notifier = container.resolve(FirebaseNotifier);
+        let statusMessage = '';
+        let actionUrl = '/reports/my-reports';
+        let actionRequired = false;
+        
+        switch(status) {
+          case 'investigating':
+            statusMessage = 'Thank you for your report. Our team is now investigating the issue and will take appropriate action if needed.';
+            break;
+          case 'resolved':
+            statusMessage = 'Your report has been reviewed and resolved. Thank you for helping us maintain a safe community.';
+            actionRequired = false;
+            break;
+          case 'dismissed':
+            statusMessage = 'Your report has been reviewed. After investigation, no action was required at this time. Thank you for your vigilance.';
+            break;
+          default:
+            statusMessage = `Your report status has been updated to ${status}.`;
+        }
+
+        await notifier.sendContextualNotification(existingReport.reporterId, 'REPORT_UPDATE', {
+          title: `Report Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+          body: statusMessage,
+          priority: 'normal',
+          actionRequired: actionRequired,
+          actionUrl: actionUrl,
+          entityType: 'report',
+          entityId: reportId
+        });
+      } catch (notifyError) {
+        console.error('Failed to send report status notification:', notifyError);
+      }
 
       res.status(200).json({
         success: true,

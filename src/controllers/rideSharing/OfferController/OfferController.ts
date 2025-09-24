@@ -4,6 +4,7 @@ import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
 import { container } from "tsyringe";
 import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
+import { prisma } from "../../../utils/prismaClient";
 
 
 export class OfferController {
@@ -100,12 +101,25 @@ export class OfferController {
 
       const newOffer = await this.offerModel.createOffer(offerData);
 
-        const notificationsManger = container.resolve(FirebaseNotifier)
-              notificationsManger.sendNotification(recipientId, {
-                title: "New Offer",
-                body: `You have a new ride offer. Message: ${message}`,
-                type: 'OFFER'
-              });
+        const notificationsManger = container.resolve(FirebaseNotifier);
+        
+        // Get sender info for better notification context
+        const senderInfo = await prisma.user.findUnique({
+          where: { id: senderId },
+          select: { username: true }
+        });
+
+        await notificationsManger.sendContextualNotification(recipientId, 'OFFER', {
+          title: "New Transportation Offer Received",
+          body: `${senderInfo?.username || 'A provider'} has sent you a ride offer for ${seatsRequested} seat(s) at $${pricePerSeat} per seat. ${message ? `Message: "${message}"` : ''}`,
+          priority: 'high',
+          actionRequired: true,
+          actionUrl: `/offers/${newOffer.id}`,
+          entityType: 'transportation_offer',
+          entityId: newOffer.id,
+          relatedUserId: senderId,
+          relatedUserName: senderInfo?.username
+        });
             
 
       const offerWithSignedUrls = await this.processUserMediaUrls(newOffer);
@@ -129,17 +143,45 @@ export class OfferController {
     try {
       const offerId = parseInt(req.params.id);
       const result = await this.offerModel.acceptOffer(offerId);
-  const notificationManager = container.resolve(FirebaseNotifier)
-  notificationManager.sendNotification(result.offer.senderId,{
-    body: "Transportation offer was accepted",
-    title: `Offer accepted (${new Date(result.offer.createdAt).toLocaleString()})`,
-    type: 'OFFER'
-  })
-  notificationManager.sendNotification(result.offer.recipientId,{
-    body: "Transportation offer was accepted",
-    title: `Offer accepted (${new Date(result.offer.createdAt).toLocaleString()})`,
-    type: 'OFFER'
-  })
+      const notificationManager = container.resolve(FirebaseNotifier);
+      
+      // Get user info for better context
+      const [senderInfo, recipientInfo] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: result.offer.senderId },
+          select: { username: true }
+        }),
+        prisma.user.findUnique({
+          where: { id: result.offer.recipientId },
+          select: { username: true }
+        })
+      ]);
+
+      // Notify sender (offer provider)
+      await notificationManager.sendContextualNotification(result.offer.senderId, 'OFFER_ACCEPTED', {
+        title: "Great News! Your Offer Was Accepted",
+        body: `${recipientInfo?.username || 'A traveler'} has accepted your transportation offer. A booking has been created and you can now coordinate the trip details.`,
+        priority: 'high',
+        actionRequired: true,
+        actionUrl: `/bookings/${result.booking?.id}`,
+        entityType: 'transportation_offer',
+        entityId: offerId,
+        relatedUserId: result.offer.recipientId,
+        relatedUserName: recipientInfo?.username
+      });
+
+      // Notify recipient (traveler)
+      await notificationManager.sendContextualNotification(result.offer.recipientId, 'OFFER_ACCEPTED', {
+        title: "Offer Accepted Successfully",
+        body: `You have successfully accepted the transportation offer from ${senderInfo?.username || 'the provider'}. Your booking is confirmed and you can now prepare for your trip.`,
+        priority: 'high',
+        actionRequired: true,
+        actionUrl: `/bookings/${result.booking?.id}`,
+        entityType: 'transportation_offer',
+        entityId: offerId,
+        relatedUserId: result.offer.senderId,
+        relatedUserName: senderInfo?.username
+      });
       
       // const notificationsManger = container.resolve(FirebaseNotifier)
       //   notificationsManger.sendNotification(result.booking.travelerId, {
@@ -169,21 +211,47 @@ export class OfferController {
       const offerId = parseInt(req.params.id);
       const updatedOffer = await this.offerModel.rejectOffer(offerId);
 
-      // Notify both parties
+      // Notify both parties with enhanced context
       try {
         const notificationManager = container.resolve(FirebaseNotifier);
+        
+        // Get user info for better context
+        const [senderInfo, recipientInfo] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: updatedOffer.senderId },
+            select: { username: true }
+          }),
+          prisma.user.findUnique({
+            where: { id: updatedOffer.recipientId },
+            select: { username: true }
+          })
+        ]);
+
         if (updatedOffer?.senderId) {
-          notificationManager.sendNotification(updatedOffer.senderId, {
-            title: 'Offer Rejected',
-            body: 'Your transportation offer was rejected.',
-            type: 'OFFER'
+          await notificationManager.sendContextualNotification(updatedOffer.senderId, 'OFFER_REJECTED', {
+            title: 'Transportation Offer Declined',
+            body: `Unfortunately, ${recipientInfo?.username || 'the traveler'} has declined your transportation offer. Don't worry, there are more opportunities available.`,
+            priority: 'normal',
+            actionRequired: false,
+            actionUrl: '/offers/available',
+            entityType: 'transportation_offer',
+            entityId: offerId,
+            relatedUserId: updatedOffer.recipientId,
+            relatedUserName: recipientInfo?.username
           });
         }
+        
         if (updatedOffer?.recipientId) {
-          notificationManager.sendNotification(updatedOffer.recipientId, {
-            title: 'Offer Rejected',
-            body: 'A transportation offer you received was rejected.',
-            type: 'OFFER'
+          await notificationManager.sendContextualNotification(updatedOffer.recipientId, 'OFFER_REJECTED', {
+            title: 'Offer Rejected Successfully',
+            body: `You have declined the transportation offer from ${senderInfo?.username || 'the provider'}. You can continue browsing other available options.`,
+            priority: 'normal',
+            actionRequired: false,
+            actionUrl: '/browse/transportation',
+            entityType: 'transportation_offer',
+            entityId: offerId,
+            relatedUserId: updatedOffer.senderId,
+            relatedUserName: senderInfo?.username
           });
         }
       } catch (notifyError) {

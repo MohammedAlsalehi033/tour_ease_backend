@@ -41,10 +41,14 @@ export class AdminController {
             // Notify the affected user
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(id, {
-                    title: 'Account Blocked',
-                    body: 'An admin has blocked your account. Contact support if this is an error.',
-                    type: 'ADMIN'
+                await notifier.sendContextualNotification(id, 'ACCOUNT_BLOCKED', {
+                    title: 'Account Temporarily Blocked',
+                    body: 'Your account has been temporarily blocked by an administrator due to policy violations. Please contact our support team if you believe this action was taken in error or need assistance.',
+                    priority: 'high',
+                    actionRequired: true,
+                    actionUrl: '/support/contact',
+                    entityType: 'account_block',
+                    entityId: id
                 });
             } catch (notifyError) {
                 console.error('Failed to send block notification:', notifyError);
@@ -53,6 +57,38 @@ export class AdminController {
         } catch (error: any) {
              console.error("Error in AdminController blockUser:", error);
              res.status(500).json({ success: false, message: "Failed to block user" });
+        }
+    }
+
+    async unblockUser(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                return res.status(400).json({ success: false, message: "User ID parameter is required" });
+            }
+            
+            const user = await this.adminModel.unblockUser(id);
+            
+            // Notify the user that their account has been unblocked
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendContextualNotification(id, 'ACCOUNT_UNBLOCKED', {
+                    title: 'Account Unblocked',
+                    body: 'Good news! Your account has been unblocked by an administrator. You can now access all features again. Please ensure you follow our community guidelines to avoid future issues.',
+                    priority: 'high',
+                    actionRequired: false,
+                    actionUrl: '/guidelines',
+                    entityType: 'account_unblock',
+                    entityId: id
+                });
+            } catch (notifyError) {
+                console.error('Failed to send unblock notification:', notifyError);
+            }
+            
+            res.status(200).json({ success: true, message: "User unblocked successfully", data: user });
+        } catch (error: any) {
+            console.error("Error in AdminController unblockUser:", error);
+            res.status(500).json({ success: false, message: "Failed to unblock user" });
         }
     }
 
@@ -167,10 +203,18 @@ export class AdminController {
             // Notify provider
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(providerId, {
-                    title: 'Transportation Provider Status Updated',
-                    body: `Your provider application status is now ${actualStatus}.`,
-                    type: 'ADMIN'
+                const statusMessage = actualStatus === 'active' 
+                    ? 'Congratulations! Your transportation provider application has been approved. You can now start offering transportation services on our platform.'
+                    : 'Unfortunately, your transportation provider application has been rejected. Please review our provider guidelines and feel free to reapply after addressing any concerns.';
+                
+                await notifier.sendContextualNotification(providerId, 'PROVIDER_STATUS', {
+                    title: `Transportation Provider Application ${actualStatus === 'active' ? 'Approved' : 'Rejected'}`,
+                    body: statusMessage,
+                    priority: 'high',
+                    actionRequired: true,
+                    actionUrl: actualStatus === 'active' ? '/provider/dashboard' : '/provider/guidelines',
+                    entityType: 'transportation_provider',
+                    entityId: providerId
                 });
             } catch (notifyError) {
                 console.error('Failed to notify transportation provider status change:', notifyError);
@@ -283,10 +327,18 @@ export class AdminController {
             // Notify provider
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(providerId, {
-                    title: 'Accommodation Provider Status Updated',
-                    body: `Your provider application status is now ${actualStatus}.`,
-                    type: 'ADMIN'
+                const statusMessage = actualStatus === 'active' 
+                    ? 'Congratulations! Your accommodation provider application has been approved. You can now start listing accommodations on our platform.'
+                    : 'Unfortunately, your accommodation provider application has been rejected. Please review our provider guidelines and feel free to reapply after addressing any concerns.';
+                
+                await notifier.sendContextualNotification(providerId, 'PROVIDER_STATUS', {
+                    title: `Accommodation Provider Application ${actualStatus === 'active' ? 'Approved' : 'Rejected'}`,
+                    body: statusMessage,
+                    priority: 'high',
+                    actionRequired: true,
+                    actionUrl: actualStatus === 'active' ? '/provider/dashboard' : '/provider/guidelines',
+                    entityType: 'accommodation_provider',
+                    entityId: providerId
                 });
             } catch (notifyError) {
                 console.error('Failed to notify accommodation provider status change:', notifyError);

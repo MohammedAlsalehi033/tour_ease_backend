@@ -55,10 +55,14 @@ export default class RequestController {
       // Notify traveler that their request was created
       try {
         const notifier = container.resolve(FirebaseNotifier);
-        await notifier.sendNotification(travelerId, {
-          title: "Request Created",
-          body: `Your ride request from ${startLocationText} to ${endLocationText} was posted.`,
-          type: 'REQUEST'
+        await notifier.sendContextualNotification(travelerId, 'REQUEST', {
+          title: "Ride Request Posted Successfully",
+          body: `Your ride request from ${startLocationText} to ${endLocationText} has been posted and is now visible to transportation providers.`,
+          priority: 'normal',
+          actionRequired: false,
+          actionUrl: `/requests/${newRequest.id}`,
+          entityType: 'transportation_request',
+          entityId: newRequest.id
         });
       } catch (notifyError) {
         // Log only — do not fail the request on notification issues

@@ -12,6 +12,7 @@ const adminController = new AdminController(adminModel, fileUploader);
 // User Management routes
 router.get("/users/:id",adminMiddleware(["Manage Users"]), adminController.getUserById.bind(adminController));
 router.put("/users/:id/block", adminController.blockUser.bind(adminController));
+router.put("/users/:id/unblock", adminController.unblockUser.bind(adminController));
 
 // Transportation Provider routes
 router.get("/transportationProviders", adminController.getPendingTransportationProviders.bind(adminController));

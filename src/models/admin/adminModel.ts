@@ -104,6 +104,19 @@ export class AdminModel {
          }
      }
 
+    async unblockUser(id: string) {
+        try {
+            const updatedUser = await prisma.user.update({
+                where: { id: id },
+                data: { accountStatus: 'active' },
+            });
+            return updatedUser;
+        } catch (error) {
+            console.error("Error unblocking user:", error);
+            throw new Error(`Failed to unblock user with ID ${id}`);
+        }
+    }
+
 
     async getTransportationProvidersByStatus(status = "pending", page : number, pageSize : number) {
         const skip = (page - 1) * pageSize;

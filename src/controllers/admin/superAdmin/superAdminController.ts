@@ -43,10 +43,14 @@ export class SuperAdminController {
             // Notify user of role change
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(userId, {
-                    title: 'Role Updated',
-                    body: 'You have been granted admin privileges.',
-                    type: 'ADMIN'
+                await notifier.sendContextualNotification(userId, 'ADMIN_ROLE', {
+                    title: 'Administrator Privileges Granted',
+                    body: 'Congratulations! You have been granted administrator privileges. You now have access to admin features and can manage users and content.',
+                    priority: 'high',
+                    actionRequired: true,
+                    actionUrl: '/admin/dashboard',
+                    entityType: 'admin_role',
+                    entityId: userId
                 });
             } catch (notifyError) {
                 console.error('Failed to send admin add notification:', notifyError);
@@ -87,10 +91,13 @@ export class SuperAdminController {
             // Notify user of role removal
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(id, {
-                    title: 'Role Updated',
-                    body: 'Your admin privileges have been removed.',
-                    type: 'ADMIN'
+                await notifier.sendContextualNotification(id, 'ADMIN_ROLE', {
+                    title: 'Administrator Privileges Removed',
+                    body: 'Your administrator privileges have been removed. You will no longer have access to admin features. Contact support if you believe this is an error.',
+                    priority: 'high',
+                    actionRequired: true,
+                    entityType: 'admin_role',
+                    entityId: id
                 });
             } catch (notifyError) {
                 console.error('Failed to send admin removal notification:', notifyError);
@@ -123,10 +130,17 @@ export class SuperAdminController {
             // Notify user about status change
             try {
                 const notifier = container.resolve(FirebaseNotifier);
-                await notifier.sendNotification(id, {
-                    title: 'Account Status Changed',
-                    body: `Your account status is now ${updatedUser.accountStatus}.`,
-                    type: 'ADMIN'
+                const statusMessage = updatedUser.accountStatus === 'active' 
+                    ? 'Your account has been reactivated and you can now access all features.'
+                    : `Your account has been set to ${updatedUser.accountStatus}. Some features may be restricted. Contact support for assistance.`;
+                
+                await notifier.sendContextualNotification(id, 'ACCOUNT_STATUS', {
+                    title: 'Account Status Updated',
+                    body: statusMessage,
+                    priority: 'high',
+                    actionRequired: updatedUser.accountStatus !== 'active',
+                    entityType: 'account_status',
+                    entityId: id
                 });
             } catch (notifyError) {
                 console.error('Failed to send account status change notification:', notifyError);
@@ -166,6 +180,23 @@ export class SuperAdminController {
 
         try {
             const updatedAdmin = await this.superAdminModel.changeAdminPermissions(id, permissions);
+            
+            // Notify admin about permissions change
+            try {
+                const notifier = container.resolve(FirebaseNotifier);
+                await notifier.sendContextualNotification(id, 'ADMIN_PERMISSIONS', {
+                    title: 'Admin Permissions Updated',
+                    body: `Your administrator permissions have been updated. New permissions: ${permissions.join(', ')}. Please review the changes and contact support if you have questions.`,
+                    priority: 'high',
+                    actionRequired: true,
+                    actionUrl: '/admin/permissions',
+                    entityType: 'admin_permissions',
+                    entityId: id
+                });
+            } catch (notifyError) {
+                console.error('Failed to send permissions change notification:', notifyError);
+            }
+            
             res.status(200).json({ message: "Permissions updated successfully", data: updatedAdmin });
         } catch (error) {
             console.error("Error changing admin permissions:", error);

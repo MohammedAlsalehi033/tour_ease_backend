@@ -130,12 +130,17 @@ export class MessageController {
       else{
         const user = await this.userModel.getUserById(senderId);
         
-        
-        const notificationsManger = container.resolve(FirebaseNotifier)
-        notificationsManger.sendNotification(receiverId, {
-          title: "New Message",
-          body: `You have received a new message from ${user.username}`,
-          type: 'CHAT'
+        const notificationsManger = container.resolve(FirebaseNotifier);
+        await notificationsManger.sendContextualNotification(receiverId, 'CHAT', {
+          title: "New Message Received",
+          body: `${user.username} sent you a message: "${content.length > 50 ? content.substring(0, 50) + '...' : content}"`,
+          priority: 'normal',
+          actionRequired: true,
+          actionUrl: `/chat/${senderId}`,
+          entityType: 'chat_message',
+          entityId: newMessage.id,
+          relatedUserId: senderId,
+          relatedUserName: user.username
         });
       }
       
