@@ -57,6 +57,7 @@ export class PrismaQuestionModel extends BaseModel<any> {
             mediaUrls: true,
           },
         },
+        vote: true, // Include vote data so users can see their previous votes
         comments: {
           include: {
             user: {

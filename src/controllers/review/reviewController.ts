@@ -189,7 +189,7 @@ export class ReviewController {
           include: {
             bookings: {
               where: {
-                status: 'complete' // Only consider complete bookings
+                status: 'complete' 
               },
               include: {
                 reviews: {
@@ -307,7 +307,6 @@ export class ReviewController {
     }
   }
 
-  // Get user's own reviews
   async getMyReviews(req: Request, res: Response) {
     try {
       const reviewerId = req.user.id;
@@ -338,7 +337,6 @@ export class ReviewController {
     }
   }
 
-  // Get a specific review by ID
   async getReviewById(req: Request, res: Response) {
     try {
       const { id } = req.params;

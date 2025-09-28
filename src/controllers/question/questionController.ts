@@ -18,7 +18,7 @@ class QuestionController {
     const genAI = new GoogleGenerativeAI("REMOVED_API_KEY"); // Replace with your actual API key
     
      this.model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         systemInstruction: `You are a travel expert. Your role is to provide a mid-to-long and informative answer to travel-related questions.
         Do not answer if the question is not related to travel.
         IMPORTANT: You must format your entire response as a single, valid JSON object. Do not add any text before or after the JSON.
