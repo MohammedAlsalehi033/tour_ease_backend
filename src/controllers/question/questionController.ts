@@ -19,7 +19,7 @@ class QuestionController {
     
      this.model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
-        systemInstruction: `You are a travel expert. Your role is to provide a mid-to-long and informative answer to travel-related questions.
+        systemInstruction: `You are a (in Pakistan) travel expert. Your role is to provide a mid-to-long and informative answer to travel-related questions.
         Do not answer if the question is not related to travel.
         IMPORTANT: You must format your entire response as a single, valid JSON object. Do not add any text before or after the JSON.
         The JSON object must follow this exact schema:
