@@ -25,6 +25,7 @@ export class ReportController {
         messageId,
         offerId,
         transportationBookingId,
+        transportationRequestId,
         accommodationBookingId,
       } = req.body;
 
@@ -49,6 +50,7 @@ console.log(reporterId);
       else if (messageId) reportableId = messageId;
       else if (offerId) reportableId = offerId;
       else if (transportationBookingId) reportableId = transportationBookingId;
+      else if (transportationRequestId) reportableId = transportationRequestId;
       else if (accommodationBookingId) reportableId = accommodationBookingId;
 
       if (reportableId) {
@@ -99,7 +101,8 @@ console.log(reporterId);
         messageId,
         offerId,
         transportationBookingId,
-        accommodationBookingId,
+        transportationRequestId,
+accommodationBookingId,
       ];
 
       if (!reportableIds.some(id => id !== undefined)) {
