@@ -77,6 +77,7 @@ console.log(reporterId);
         'MESSAGE',
         'OFFER',
         'TRANSPORTATION_BOOKING',
+        'TRANSPORTATION_REQUEST',
         'ACCOMMODATION_BOOKING',
       ];
 

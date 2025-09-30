@@ -332,17 +332,25 @@ async acceptOffer(offerId: number): Promise<any> {
       },
     });
     
-    // If booking from a listing, update the available seats
+    // If booking from a listing, update the available seats and status
     if (offer.transportationListingId) {
       const listing = await tx.transportationListing.findUnique({
         where: { id: offer.transportationListingId },
       });
       if (listing) {
+        const newSeatsAvailable = listing.seatsAvailable - offer.seatsRequested;
+        const updateData: any = {
+          seatsAvailable: newSeatsAvailable,
+        };
+        
+        // If no seats left or all seats are booked, mark as unavailable
+        if (newSeatsAvailable <= 0) {
+          updateData.status = 'booked';
+        }
+        
         await tx.transportationListing.update({
           where: { id: offer.transportationListingId },
-          data: {
-            seatsAvailable: listing.seatsAvailable - offer.seatsRequested,
-          },
+          data: updateData,
         });
       }
     }

@@ -130,16 +130,16 @@ export class AnalyticsController {
                 volumeOverTime,
                 valueOverTime,
                 avgValue,
-                statusDistribution,
-                popularRoutes
+                statusDistribution
             ] = await Promise.all([
                 this.analyticsModel.getTransportationBookingVolumeOverTime(interval, filters),
                 this.analyticsModel.getTransportationBookingValueOverTime(interval, filters),
                 this.analyticsModel.getAverageTransportationBookingValue(filters),
-                this.analyticsModel.getTransportationBookingStatusDistribution(filters),
-                this.analyticsModel.getTransportationBookingStatusDistribution(filters),
-                // this.analyticsModel.getPopularTransportationRoutes(filters)
+                this.analyticsModel.getTransportationBookingStatusDistribution(filters)
             ]);
+
+            // For now, set popularRoutes to empty array until method is implemented
+            const popularRoutes: any[] = [];
 
             res.status(200).json({
                 success: true,
@@ -170,19 +170,17 @@ export class AnalyticsController {
                 volumeOverTime,
                 valueOverTime,
                 avgValue,
-                statusDistribution,
-                popularLocations,
-                popularRoomTypes
+                statusDistribution
             ] = await Promise.all([
                 this.analyticsModel.getAccommodationBookingVolumeOverTime(interval, filters),
                 this.analyticsModel.getAccommodationBookingValueOverTime(interval, filters),
                 this.analyticsModel.getAverageAccommodationBookingValue(filters),
-                this.analyticsModel.getAverageAccommodationBookingValue(filters),
-                this.analyticsModel.getAverageAccommodationBookingValue(filters),
-                this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                // this.analyticsModel.getPopularAccommodationLocations(filters),
-                // this.analyticsModel.getPopularAccommodationRoomTypes(filters)
+                this.analyticsModel.getAccommodationBookingStatusDistribution(filters)
             ]);
+
+            // For now, set these to empty arrays until methods are implemented
+            const popularLocations: any[] = [];
+            const popularRoomTypes: any[] = [];
 
             res.status(200).json({
                 success: true,
@@ -213,17 +211,16 @@ export class AnalyticsController {
              const [
                 questionsOverTime,
                 reviewsOverTime,
-                offerStatusCounts,
-                commentCounts,
-                voteDistribution
+                offerStatusCounts
              ] = await Promise.all([
                  this.analyticsModel.getQuestionCountOverTime(interval, filters),
                  this.analyticsModel.getReviewCountOverTime(interval, filters),
-                 this.analyticsModel.getOfferActivityByStatus(filters),
-                //  this.analyticsModel.getCommentCountsByContentType(filters),
-                //  this.analyticsModel.getVoteDistributionByContentType(filters)
-                5,6
+                 this.analyticsModel.getOfferActivityByStatus(filters)
              ]);
+
+            // For now, set these to empty arrays until methods are implemented
+            const commentCounts: any[] = [];
+            const voteDistribution: any[] = [];
 
             res.status(200).json({
                 success: true,
@@ -253,15 +250,15 @@ export class AnalyticsController {
             const [
                 avgOverall,
                 avgByType,
-                distribution,
-                ratingTrends
+                distribution
             ] = await Promise.all([
                 this.analyticsModel.getAverageRatingOverall(filters),
                 this.analyticsModel.getAverageRatingByType(filters),
-                this.analyticsModel.getRatingDistribution({ ...filters, reviewableType }),
-                5
-                // this.analyticsModel.getRatingTrendsOverTime('month', filters)
+                this.analyticsModel.getRatingDistribution({ ...filters, reviewableType })
             ]);
+
+            // For now, set this to empty array until method is implemented
+            const ratingTrends: any[] = [];
 
             res.status(200).json({
                 success: true,
@@ -289,16 +286,15 @@ export class AnalyticsController {
 
              const [
                 transportProviderStatusCounts,
-                accommodationProviderCount,
-                providerApplicationsOverTime,
-                topPerformingProviders
+                accommodationProviderCount
              ] = await Promise.all([
                  this.analyticsModel.getTransportationProviderCountByStatus(filters),
-                 this.analyticsModel.getAccommodationProviderCount(filters),
-                 5,66
-                //  this.analyticsModel.getProviderApplicationsOverTime(interval, filters),
-                //  this.analyticsModel.getTopPerformingProviders(10, filters)
+                 this.analyticsModel.getAccommodationProviderCount(filters)
              ]);
+
+            // For now, set these to empty arrays until methods are implemented
+            const providerApplicationsOverTime: any[] = [];
+            const topPerformingProviders: any[] = [];
 
             res.status(200).json({
                 success: true,
@@ -360,15 +356,15 @@ export class AnalyticsController {
                     const [
                         registrationsOverTime,
                         countByRole,
-                        countByStatus,
-                        activeUsersOverTime
+                        countByStatus
                     ] = await Promise.all([
                         this.analyticsModel.getUserRegistrationsOverTime(interval, filters),
                         this.analyticsModel.getUserCountByRole(filters),
-                        this.analyticsModel.getUserCountByStatus(filters),
-                        this.analyticsModel.getUserCountByStatus(filters),
-                        // this.analyticsModel.getActiveUsersOverTime(interval, filters)
+                        this.analyticsModel.getUserCountByStatus(filters)
                     ]);
+                    
+                    // For now, set this to empty array until method is implemented
+                    const activeUsersOverTime: any[] = [];
                     
                     reportData = {
                         registrationsOverTime,
@@ -386,16 +382,16 @@ export class AnalyticsController {
                         volumeOverTime,
                         valueOverTime,
                         avgValue,
-                        statusDistribution,
-                        popularRoutes
+                        statusDistribution
                     ] = await Promise.all([
                         this.analyticsModel.getTransportationBookingVolumeOverTime(transInterval, filters),
                         this.analyticsModel.getTransportationBookingValueOverTime(transInterval, filters),
                         this.analyticsModel.getAverageTransportationBookingValue(filters),
-                        this.analyticsModel.getAverageTransportationBookingValue(filters),
-                        this.analyticsModel.getTransportationBookingStatusDistribution(filters),
-                        // this.analyticsModel.getPopularTransportationRoutes(filters)
+                        this.analyticsModel.getTransportationBookingStatusDistribution(filters)
                     ]);
+                    
+                    // For now, set this to empty array until method is implemented
+                    const popularRoutes: any[] = [];
                     
                     reportData = {
                         volumeOverTime,
@@ -414,19 +410,17 @@ export class AnalyticsController {
                         accVolumeOverTime,
                         accValueOverTime,
                         accAvgValue,
-                        accStatusDistribution,
-                        popularLocations,
-                        popularRoomTypes
+                        accStatusDistribution
                     ] = await Promise.all([
                         this.analyticsModel.getAccommodationBookingVolumeOverTime(accInterval, filters),
                         this.analyticsModel.getAccommodationBookingValueOverTime(accInterval, filters),
                         this.analyticsModel.getAverageAccommodationBookingValue(filters),
-                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters),
-                        // this.analyticsModel.getPopularAccommodationLocations(filters),
-                        // this.analyticsModel.getPopularAccommodationRoomTypes(filters)
+                        this.analyticsModel.getAccommodationBookingStatusDistribution(filters)
                     ]);
+                    
+                    // For now, set these to empty arrays until methods are implemented
+                    const popularLocations: any[] = [];
+                    const popularRoomTypes: any[] = [];
                     
                     reportData = {
                         volumeOverTime: accVolumeOverTime,
@@ -445,18 +439,16 @@ export class AnalyticsController {
                     const [
                         questionsOverTime,
                         reviewsOverTime,
-                        offerStatusCounts,
-                        commentCounts,
-                        voteDistribution
+                        offerStatusCounts
                     ] = await Promise.all([
                         this.analyticsModel.getQuestionCountOverTime(contentInterval, filters),
                         this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
-                        this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
-                        this.analyticsModel.getReviewCountOverTime(contentInterval, filters),
-                        this.analyticsModel.getOfferActivityByStatus(filters),
-                        // this.analyticsModel.getCommentCountsByContentType(filters),
-                        // this.analyticsModel.getVoteDistributionByContentType(filters)
+                        this.analyticsModel.getOfferActivityByStatus(filters)
                     ]);
+                    
+                    // For now, set these to empty arrays until methods are implemented
+                    const commentCounts: any[] = [];
+                    const voteDistribution: any[] = [];
                     
                     reportData = {
                         questionsOverTime,
@@ -474,14 +466,15 @@ export class AnalyticsController {
                     const [
                         avgOverall,
                         avgByType,
-                        distribution,
-                        ratingTrends
+                        distribution
                     ] = await Promise.all([
                         this.analyticsModel.getAverageRatingOverall(filters),
                         this.analyticsModel.getAverageRatingByType(filters),
-                        this.analyticsModel.getRatingDistribution({ ...filters, reviewableType }),
-                        this.analyticsModel.getRatingTrendsOverTime('month', filters)
+                        this.analyticsModel.getRatingDistribution({ ...filters, reviewableType })
                     ]);
+                    
+                    // For now, set this to empty array until method is implemented
+                    const ratingTrends: any[] = [];
                     
                     reportData = {
                         averageRatingOverall: avgOverall,
@@ -497,15 +490,15 @@ export class AnalyticsController {
                         
                     const [
                         transportProviderStatusCounts,
-                        accommodationProviderCount,
-                        providerApplicationsOverTime,
-                        topPerformingProviders
+                        accommodationProviderCount
                     ] = await Promise.all([
                         this.analyticsModel.getTransportationProviderCountByStatus(filters),
-                        this.analyticsModel.getAccommodationProviderCount(filters),
-                        this.analyticsModel.getProviderApplicationsOverTime(providerInterval, filters),
-                        this.analyticsModel.getTopPerformingProviders(10, filters)
+                        this.analyticsModel.getAccommodationProviderCount(filters)
                     ]);
+                    
+                    // For now, set these to empty arrays until methods are implemented
+                    const providerApplicationsOverTime: any[] = [];
+                    const topPerformingProviders: any[] = [];
                     
                     reportData = {
                         transportProviderStatusCounts,

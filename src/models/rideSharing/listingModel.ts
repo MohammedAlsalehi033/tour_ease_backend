@@ -139,6 +139,7 @@ async searchNearbyListings(
 
     query += `
       AND tl."status" = 'active'
+      AND tl."seatsAvailable" > 0
       AND tl."departureTime" > NOW()
       AND tl."seatsAvailable" >= ${minSeats}
     `;
@@ -425,6 +426,7 @@ async searchNearbyListings(
         startLocationText: { contains: startLocationText, mode: 'insensitive' },
         endLocationText: { contains: endLocationText, mode: 'insensitive' },
         status: 'active',
+        seatsAvailable: { gt: 0 },
         departureTime: { gt: new Date() },
       };
 
