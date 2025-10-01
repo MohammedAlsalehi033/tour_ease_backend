@@ -205,7 +205,7 @@ class QuestionController {
       if(question.user.id !== req.user.id && !isUserAdmin){
           return res.status(404).json({
           success: false,
-          message: 'this is not your question you cant delete it'
+          message: `this is not your question you cant delete it ${req.user.role}`
         });
       }
    
