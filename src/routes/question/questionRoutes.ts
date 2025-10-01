@@ -20,7 +20,7 @@ router.get('/questions/:id', questionController.getQuestionById.bind(questionCon
 
 router.post('/questions',authMiddleware(["traveler"]), questionController.createQuestion.bind(questionController));
 router.put('/questions/:id',authMiddleware(["traveler"]), questionController.updateQuestion.bind(questionController));
-router.delete('/questions/:id',authMiddleware(["traveler"]), questionController.deleteQuestion.bind(questionController));
+router.delete('/questions/:id',authMiddleware(["traveler", "admin"]), questionController.deleteQuestion.bind(questionController));
 router.post('/questions/vote',authMiddleware(["traveler"]), questionController.voteQuestion.bind(questionController));
 router.post('/questions/ai', questionController.askTheAI.bind(questionController));
 

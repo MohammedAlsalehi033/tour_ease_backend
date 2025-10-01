@@ -201,11 +201,14 @@ class QuestionController {
           message: 'Question not found'
         });
       }
-      const isUserAdmin = req.user.roles.includes('admin');
-      if(question.user.id !== req.user.id && !isUserAdmin){
-          return res.status(404).json({
+      const userRoleNames = req.user.roles.map(userRole => userRole.role.roleName);
+      const isUserAdmin = userRoleNames.includes('admin');
+      const isQuestionOwner = question.user.id === req.user.id;
+      
+      if(!isQuestionOwner && !isUserAdmin){
+          return res.status(403).json({
           success: false,
-          message: `this is not your question you cant delete it ${req.user.roles.toString()}`
+          message: 'Access denied. Only the question owner or an admin can delete this question.'
         });
       }
    
