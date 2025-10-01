@@ -201,11 +201,11 @@ class QuestionController {
           message: 'Question not found'
         });
       }
-      const isUserAdmin = req.user.role === 'admin';
+      const isUserAdmin = req.user.roles.includes('admin');
       if(question.user.id !== req.user.id && !isUserAdmin){
           return res.status(404).json({
           success: false,
-          message: `this is not your question you cant delete it ${req.user.role}`
+          message: `this is not your question you cant delete it ${req.user.roles}`
         });
       }
    
