@@ -20,7 +20,7 @@ router.post(
 // Get all reports (admin only)
 router.get(
   '/',
-  adminMiddleware(["Super Admin","View Reports"]),
+  adminMiddleware(["View Reports"]),
  
   reportController.getAllReports.bind(reportController)
 );
