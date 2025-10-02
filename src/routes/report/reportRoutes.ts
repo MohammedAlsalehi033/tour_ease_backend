@@ -1,6 +1,7 @@
 import express from 'express';
 import { ReportController } from '../../controllers/report/reportController';
 import authMiddleware from '../../middleware/authMiddleware';
+import adminMiddleware from '../../middleware/adminsMiddleware';
 
 const router = express.Router();
 const reportController = new ReportController();
@@ -19,7 +20,7 @@ router.post(
 // Get all reports (admin only)
 router.get(
   '/',
-  authMiddleware(),
+  adminMiddleware(["Super Admin","View Reports"]),
  
   reportController.getAllReports.bind(reportController)
 );

@@ -75,8 +75,30 @@ import { FileUploaderForS3 } from "../../../utils/FileUploader";
     async deleteComment (req, res){
         try{
             const {id} = req.params
+            const userId = req.user.id;
+            const comment = await this.commentModel.getItemById(id);
+            
+            if(!comment){
+                return res.status(404).json({
+                    success: false,
+                    message: "Comment not found"
+                });
+            }
+
+            // Check if user is admin
+            const userRoleNames = req.user.roles.map(userRole => userRole.role.roleName);
+            const isAdmin = userRoleNames.includes('Admin');
+
+            // Check if user is the comment owner or admin
+            if(comment.userId !== userId && !isAdmin){
+                return res.status(403).json({
+                    success: false,
+                    message: "You don't have permission to delete this comment"
+                });
+            }
+
             const response = await this.commentModel.deleteItem(id)
-            res.status(201).json({
+            res.status(200).json({
                 success: true,
                 data: response
             });
