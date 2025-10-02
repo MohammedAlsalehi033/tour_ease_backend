@@ -89,6 +89,36 @@ export class OfferController {
         transportationRequestId 
       } = req.body;
 
+      // Check if user is trying to make an offer on their own listing
+      if (transportationListingId) {
+        const listing = await prisma.transportationListing.findUnique({
+          where: { id: parseInt(transportationListingId) },
+          select: { driverId: true },
+        });
+        
+        if (listing && listing.driverId === senderId) {
+          return res.status(400).json({
+            success: false,
+            message: "You cannot make an offer on your own listing"
+          });
+        }
+      }
+
+      // Check if user is trying to make an offer on their own request
+      if (transportationRequestId) {
+        const request = await prisma.transportationRequest.findUnique({
+          where: { id: parseInt(transportationRequestId) },
+          select: { travelerId: true },
+        });
+        
+        if (request && request.travelerId === senderId) {
+          return res.status(400).json({
+            success: false,
+            message: "You cannot make an offer on your own request"
+          });
+        }
+      }
+
       const offerData = {
         senderId,
         recipientId,
