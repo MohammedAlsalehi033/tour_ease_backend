@@ -85,6 +85,11 @@ export class SuperAdminController {
             return;
         }
 
+        if( id === req.user.id) {
+            res.status(400).json({ error: "You cannot remove the super admin (very very important user)" });
+            return;
+        }
+
         try {
             const updatedUser = await this.superAdminModel.removeAdmin(id);
             res.status(200).json({ message: "Admin role removed successfully", data: updatedUser });
