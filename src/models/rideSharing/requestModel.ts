@@ -81,7 +81,7 @@ async searchNearbyRequests(
       FROM "TransportationRequest" tr
       JOIN "User" u ON tr."travelerId" = u."id"
       LEFT JOIN "TransportationBooking" tb ON tr."id" = tb."transportationRequestId" 
-        AND tb."status" IN ('pending', 'confirmed', 'compelet')
+        AND tb."status" IN ('pending', 'confirmed', 'complete')
       WHERE tb."id" IS NULL  -- Exclude requests that already have bookings or accepted offers
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
