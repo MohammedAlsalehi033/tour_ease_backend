@@ -93,10 +93,10 @@ export class OfferController {
       if (transportationListingId) {
         const listing = await prisma.transportationListing.findUnique({
           where: { id: parseInt(transportationListingId) },
-          select: { driverId: true },
+          select: { providerId: true },
         });
         
-        if (listing && listing.driverId === senderId) {
+        if (listing && listing.providerId === senderId) {
           return res.status(400).json({
             success: false,
             message: "You cannot make an offer on your own listing"
