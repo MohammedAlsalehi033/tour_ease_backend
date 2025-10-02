@@ -11,18 +11,18 @@ const adminController = new AdminController(adminModel, fileUploader);
 
 // User Management routes
 router.get("/users/:id",adminMiddleware(["Manage Users"]), adminController.getUserById.bind(adminController));
-router.put("/users/:id/block", adminController.blockUser.bind(adminController));
-router.put("/users/:id/unblock", adminController.unblockUser.bind(adminController));
+router.put("/users/:id/block",adminMiddleware(["Manage Users"]), adminController.blockUser.bind(adminController));
+router.put("/users/:id/unblock", adminMiddleware(["Manage Users"]), adminController.unblockUser.bind(adminController));
 
 // Transportation Provider routes
-router.get("/transportationProviders", adminController.getPendingTransportationProviders.bind(adminController));
-router.get("/transportationProviders/:providerId", adminController.getTransportationProviderById.bind(adminController));
-router.put("/transportationProviders/:providerId/status", adminController.updateTransportationProviderStatus.bind(adminController));
+router.get("/transportationProviders", adminMiddleware(["Manage Providers"]), adminController.getPendingTransportationProviders.bind(adminController));
+router.get("/transportationProviders/:providerId", adminMiddleware(["Manage Providers"]), adminController.getTransportationProviderById.bind(adminController));
+router.put("/transportationProviders/:providerId/status", adminMiddleware(["Manage Providers"]), adminController.updateTransportationProviderStatus.bind(adminController));
 
 // Accommodation Provider routes
-router.get("/accommodationProviders", adminController.getPendingAccommodationProviders.bind(adminController));
-router.get("/accommodationProviders/:providerId", adminController.getAccommodationProviderById.bind(adminController));
-router.put("/accommodationProviders/:providerId/status", adminController.updateAccommodationProviderStatus.bind(adminController));
+router.get("/accommodationProviders", adminMiddleware(["Manage Providers"]), adminController.getPendingAccommodationProviders.bind(adminController));
+router.get("/accommodationProviders/:providerId", adminMiddleware(["Manage Providers"]), adminController.getAccommodationProviderById.bind(adminController));
+router.put("/accommodationProviders/:providerId/status", adminMiddleware(["Manage Providers"]), adminController.updateAccommodationProviderStatus.bind(adminController));
 
 module.exports = router;
 
