@@ -76,13 +76,13 @@ async searchNearbyRequests(
       `;
     }
 
-    // From clause with LEFT JOIN to check for existing bookings
+    // From clause with LEFT JOIN to check for existing bookings/offers
     query += `
       FROM "TransportationRequest" tr
       JOIN "User" u ON tr."travelerId" = u."id"
       LEFT JOIN "TransportationBooking" tb ON tr."id" = tb."transportationRequestId" 
-        AND tb."status" IN ('pending', 'confirmed')
-      WHERE tb."id" IS NULL  -- Exclude requests that already have bookings
+        AND tb."status" IN ('pending', 'confirmed', 'compelet')
+      WHERE tb."id" IS NULL  -- Exclude requests that already have bookings or accepted offers
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
           ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography,
