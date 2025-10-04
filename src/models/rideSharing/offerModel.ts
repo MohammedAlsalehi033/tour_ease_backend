@@ -292,6 +292,8 @@ async acceptOffer(offerId: number): Promise<any> {
     });
     
     // Handle different scenarios based on offer type
+    let cancelledRequestsCount = 0;
+    
     if (offer.transportationListingId) {
       // LISTING SCENARIO: Driver can accept multiple offers for their listing
       // Multiple travelers can book the same listing until seats run out
@@ -300,6 +302,19 @@ async acceptOffer(offerId: number): Promise<any> {
       // EDGE CASE: Cancel traveler's active requests when their offer for listing is accepted
       // Since TransportationRequest doesn't have a status field, we delete the requests
       // as they are no longer needed once the traveler has a confirmed ride
+      
+      // First count how many requests will be cancelled
+      cancelledRequestsCount = await tx.transportationRequest.count({
+        where: {
+          travelerId: offer.senderId, // The traveler who made the offer
+          departureTime: {
+            gte: new Date(), // Only future requests
+          },
+          // Optional: Add time/route overlap check here
+        }
+      });
+      
+      // Then delete them
       await tx.transportationRequest.deleteMany({
         where: {
           travelerId: offer.senderId, // The traveler who made the offer
@@ -406,13 +421,7 @@ async acceptOffer(offerId: number): Promise<any> {
       offer: updatedOffer, 
       booking,
       conflictResolution: {
-        cancelledRequests: offer.transportationListingId ? 
-          await tx.transportationRequest.count({
-            where: {
-              travelerId: offer.senderId,
-              status: 'fulfilled'
-            }
-          }) : 0,
+        cancelledRequests: offer.transportationListingId ? cancelledRequestsCount : 0,
         cancelledListings: offer.transportationRequestId ?
           await tx.transportationListing.count({
             where: {
