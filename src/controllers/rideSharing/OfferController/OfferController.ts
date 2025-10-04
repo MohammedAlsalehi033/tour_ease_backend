@@ -168,10 +168,12 @@ export class OfferController {
 
   // Accept an offer
   async acceptOffer(req, res) {
-    
-    
     try {
       const offerId = parseInt(req.params.id);
+      
+      // Validate the offer before accepting
+      await this.validateOfferAcceptance(offerId);
+      
       const result = await this.offerModel.acceptOffer(offerId);
       const notificationManager = container.resolve(FirebaseNotifier);
       
@@ -469,5 +471,123 @@ export class OfferController {
     }
     
     return processedOffer;
+  }
+
+  // Validation method for offer acceptance
+  private async validateOfferAcceptance(offerId: number): Promise<void> {
+    const offer = await prisma.offer.findUnique({
+      where: { id: offerId },
+      include: {
+        listing: true,
+        request: true,
+      }
+    });
+    
+    if (!offer) {
+      throw new Error("Offer not found");
+    }
+    
+    // Validate offer status
+    if (offer.status !== 'pending') {
+      throw new Error(`Cannot accept offer with status: ${offer.status}`);
+    }
+    
+    // Check for existing booking conflicts - TRAVELERS ONLY
+    // Drivers can have multiple bookings for their own listings, but travelers should not
+    if (offer.transportationListingId && offer.listing) {
+      // This is a traveler making an offer on a listing
+      const existingBookings = await this.validateUserBookingConflicts(
+        offer.senderId, // This is the traveler
+        offer.listing.departureTime,
+        false // Not a driver
+      );
+      
+      if (existingBookings.length > 0) {
+        throw new Error(`Traveler cannot have multiple active bookings. Found ${existingBookings.length} conflicting booking(s) at similar times.`);
+      }
+    }
+    
+    if (offer.transportationRequestId && offer.request) {
+      // This is a driver making an offer on a request
+      // We don't restrict drivers from having multiple bookings as they manage their own capacity
+      const existingBookings = await this.validateUserBookingConflicts(
+        offer.recipientId, // This is the traveler who will receive the ride
+        offer.request.departureTime,
+        false // The recipient is a traveler, not a driver
+      );
+      
+      if (existingBookings.length > 0) {
+        throw new Error(`Traveler cannot have multiple active bookings. Found ${existingBookings.length} conflicting booking(s) at similar times.`);
+      }
+    }
+
+    // Validate seat availability for listings (prevent overselling)
+    if (offer.transportationListingId) {
+      const currentListing = await prisma.transportationListing.findUnique({
+        where: { id: offer.transportationListingId },
+      });
+      
+      if (!currentListing) {
+        throw new Error("Listing not found");
+      }
+      
+      if (currentListing.seatsAvailable < offer.seatsRequested) {
+        throw new Error(`Not enough seats available. Available: ${currentListing.seatsAvailable}, Requested: ${offer.seatsRequested}`);
+      }
+      
+      if (currentListing.status !== 'active') {
+        throw new Error(`Cannot accept offer for listing with status: ${currentListing.status}`);
+      }
+    }
+  }
+
+  // Validate if TRAVELER has existing bookings that conflict
+  // Note: This method specifically checks for TRAVELER conflicts only
+  // Drivers are allowed to have multiple bookings for their own listings
+  private async validateUserBookingConflicts(
+    travelerId: string,
+    departureTime: Date,
+    isDriver: boolean = false
+  ): Promise<any[]> {
+    // Only enforce booking conflicts for travelers, not drivers
+    if (isDriver) {
+      return []; // Drivers can manage their own capacity
+    }
+    
+    const timeBuffer = 2 * 60 * 60 * 1000; // 2 hours buffer for bookings
+    const conflictStart = new Date(departureTime.getTime() - timeBuffer);
+    const conflictEnd = new Date(departureTime.getTime() + timeBuffer);
+    
+    // Check for existing bookings where this user is the TRAVELER
+    const conflictingBookings = await prisma.transportationBooking.findMany({
+      where: {
+        travelerId: travelerId, // This person as a traveler
+        status: { in: ['pending', 'confirmed', 'active'] },
+        OR: [
+          {
+            listing: {
+              departureTime: {
+                gte: conflictStart,
+                lte: conflictEnd,
+              }
+            }
+          },
+          {
+            request: {
+              departureTime: {
+                gte: conflictStart,
+                lte: conflictEnd,
+              }
+            }
+          }
+        ]
+      },
+      include: {
+        listing: true,
+        request: true
+      }
+    });
+    
+    return conflictingBookings;
   }
 }

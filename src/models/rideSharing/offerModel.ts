@@ -269,40 +269,53 @@ export class PrismaOfferModel {
     });
   }
 
-// Accept an offer and create a booking, rejecting all other competing offers
+// Accept an offer and create a booking with proper edge case handling
 async acceptOffer(offerId: number): Promise<any> {
-  // First get the offer to access its details
+  // Get the offer to access its details
   const offer = await prisma.offer.findUnique({
     where: { id: offerId },
+    include: {
+      listing: true,
+      request: true,
+    }
   });
-  
-  
   
   if (!offer) {
     throw new Error("Offer not found");
   }
   
-  const returnedValue =await prisma.$transaction(async (tx) => {
-  
+  const returnedValue = await prisma.$transaction(async (tx) => {
     // Update the offer status
     const updatedOffer = await tx.offer.update({
       where: { id: offerId },
       data: { status: "accepted" },
     });
     
-    // Automatically reject all other offers for the same listing or request
+    // Handle different scenarios based on offer type
     if (offer.transportationListingId) {
-      await tx.offer.updateMany({
+      // LISTING SCENARIO: Driver can accept multiple offers for their listing
+      // Multiple travelers can book the same listing until seats run out
+      // Don't cancel other offers, just validate availability
+      
+      // EDGE CASE: Cancel traveler's active requests when their offer for listing is accepted
+      await tx.transportationRequest.updateMany({
         where: {
-          transportationListingId: offer.transportationListingId,
-          id: { not: offerId },
-          status: { in: ["pending", "countered"] }  
+          travelerId: offer.senderId, // The traveler who made the offer
+          status: 'active',
+          departureTime: {
+            gte: new Date(), // Only future requests
+          },
+          // Optional: Add time/route overlap check here
         },
         data: {
-          status: "rejected"
+          status: 'fulfilled',
         }
       });
+      
     } else if (offer.transportationRequestId) {
+      // REQUEST SCENARIO: Cancel competing offers and check for driver conflicts
+      
+      // Cancel all other offers for the same request
       await tx.offer.updateMany({
         where: {
           transportationRequestId: offer.transportationRequestId,
@@ -313,6 +326,42 @@ async acceptOffer(offerId: number): Promise<any> {
           status: "rejected"
         }
       });
+      
+      // EDGE CASE: Check for driver's conflicting listings when their offer to request is accepted
+      const driverId = offer.senderId; // Driver who made the offer
+      const offerDepartureTime = offer.request?.departureTime;
+      
+      if (offerDepartureTime) {
+        // Find conflicting listings (same time period - within 4 hours)
+        const timeBuffer = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+        const conflictStart = new Date(offerDepartureTime.getTime() - timeBuffer);
+        const conflictEnd = new Date(offerDepartureTime.getTime() + timeBuffer);
+        
+        const conflictingListings = await tx.transportationListing.findMany({
+          where: {
+            providerId: driverId,
+            status: 'active',
+            departureTime: {
+              gte: conflictStart,
+              lte: conflictEnd,
+            }
+          }
+        });
+        
+        // Auto-cancel conflicting listings
+        if (conflictingListings.length > 0) {
+          console.log(`Driver ${driverId} has ${conflictingListings.length} potentially conflicting listings - auto-cancelling`);
+          
+          await tx.transportationListing.updateMany({
+            where: {
+              id: { in: conflictingListings.map(l => l.id) }
+            },
+            data: {
+              status: 'cancelled_due_to_conflict'
+            }
+          });
+        }
+      }
     }
     
     const totalPrice = Number(offer.pricePerSeat) * offer.seatsRequested;
@@ -343,7 +392,7 @@ async acceptOffer(offerId: number): Promise<any> {
           seatsAvailable: newSeatsAvailable,
         };
         
-        // If no seats left or all seats are booked, mark as unavailable
+        // If no seats left, mark as booked
         if (newSeatsAvailable <= 0) {
           updateData.status = 'booked';
         }
@@ -358,21 +407,34 @@ async acceptOffer(offerId: number): Promise<any> {
     return { 
       offer: updatedOffer, 
       booking,
-      // Optionally return information about rejected offers
-      rejectedOffersCount: offer.transportationListingId || offer.transportationRequestId ? 
-        await tx.offer.count({
-          where: {
-            OR: [
-              { transportationListingId: offer.transportationListingId },
-              { transportationRequestId: offer.transportationRequestId }
-            ],
-            id: { not: offerId },
-            status: "rejected"
-          }
-        }) : 0
+      conflictResolution: {
+        cancelledRequests: offer.transportationListingId ? 
+          await tx.transportationRequest.count({
+            where: {
+              travelerId: offer.senderId,
+              status: 'fulfilled'
+            }
+          }) : 0,
+        cancelledListings: offer.transportationRequestId ?
+          await tx.transportationListing.count({
+            where: {
+              providerId: offer.senderId,
+              status: 'cancelled_due_to_conflict'
+            }
+          }) : 0,
+        rejectedOffers: offer.transportationRequestId ?
+          await tx.offer.count({
+            where: {
+              transportationRequestId: offer.transportationRequestId,
+              id: { not: offerId },
+              status: "rejected"
+            }
+          }) : 0
+      }
     };
   });
-  console.log(returnedValue)
+  
+  console.log('Offer acceptance result:', returnedValue);
   return returnedValue;
 }
   // Reject an offer
