@@ -298,17 +298,15 @@ async acceptOffer(offerId: number): Promise<any> {
       // Don't cancel other offers, just validate availability
       
       // EDGE CASE: Cancel traveler's active requests when their offer for listing is accepted
-      await tx.transportationRequest.updateMany({
+      // Since TransportationRequest doesn't have a status field, we delete the requests
+      // as they are no longer needed once the traveler has a confirmed ride
+      await tx.transportationRequest.deleteMany({
         where: {
           travelerId: offer.senderId, // The traveler who made the offer
-          status: 'active',
           departureTime: {
             gte: new Date(), // Only future requests
           },
           // Optional: Add time/route overlap check here
-        },
-        data: {
-          status: 'fulfilled',
         }
       });
       
