@@ -141,7 +141,7 @@ export class OfferController {
 
         await notificationsManger.sendContextualNotification(recipientId, 'OFFER', {
           title: "New Transportation Offer Received",
-          body: `${senderInfo?.username || 'A provider'} has sent you a ride offer for ${seatsRequested} seat(s) at $${pricePerSeat} per seat. ${message ? `Message: "${message}"` : ''}`,
+          body: `${senderInfo?.username || 'A provider'} has sent you a ride offer for ${seatsRequested} seat(s) at PKR ${pricePerSeat} per seat. ${message ? `Message: "${message}"` : ''}`,
           priority: 'high',
           actionRequired: true,
           actionUrl: `/offers/${newOffer.id}`,
