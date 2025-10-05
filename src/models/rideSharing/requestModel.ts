@@ -10,6 +10,7 @@ interface SearchFilterOptions {
   radiusKm?: number;
   endLat?: number;
   endLng?: number;
+  date?: string;           // Single date filter (YYYY-MM-DD)
   startTime?: string;      // Time of day filter start (HH:MM or ISO)
   endTime?: string;        // Time of day filter end (HH:MM or ISO)
   minBudget?: number;      // Minimum budget
@@ -66,6 +67,7 @@ async searchNearbyRequests(
       radiusKm = 30,
       endLat,
       endLng,
+      date,
       startTime,
       endTime,
       minBudget,
@@ -129,6 +131,13 @@ async searchNearbyRequests(
     query += `
       AND tr."departureTime" > NOW()
     `;
+
+    // Date filter (show rides on a specific day only)
+    if (date) {
+      query += `
+        AND DATE(tr."departureTime") = DATE('${date}')
+      `;
+    }
 
     // Time of day filter (e.g., only show rides between 8:00 AM and 6:00 PM)
     if (startTime) {

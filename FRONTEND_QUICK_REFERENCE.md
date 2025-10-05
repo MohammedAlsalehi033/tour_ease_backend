@@ -11,6 +11,8 @@ GET /api/requests/nearby
 
 | Parameter | Type | Example | Description |
 |-----------|------|---------|-------------|
+| `startDate` | string | `2025-10-06` | Minimum date (YYYY-MM-DD) |
+| `endDate` | string | `2025-10-15` | Maximum date (YYYY-MM-DD) |
 | `startTime` | string | `08:00` | Minimum time of day (HH:MM) |
 | `endTime` | string | `18:00` | Maximum time of day (HH:MM) |
 | `minBudget` | number | `20` | Minimum budget |
@@ -27,19 +29,24 @@ GET /api/requests/nearby
 
 ### Quick Examples
 
-#### Example 1: Morning rides, 4-seat vehicle, profitable
+#### Example 1: Morning rides tomorrow, 4-seat vehicle, profitable
 ```javascript
-const url = `/api/requests/nearby?lat=${lat}&lng=${lng}&startTime=06:00&endTime=12:00&maxSeatsNeeded=4&sortBy=budget_desc`;
+const url = `/api/requests/nearby?lat=${lat}&lng=${lng}&startDate=2025-10-06&endDate=2025-10-06&startTime=06:00&endTime=12:00&maxSeatsNeeded=4&sortBy=budget_desc`;
 ```
 
-#### Example 2: Budget rides nearby
+#### Example 2: Budget rides nearby today
 ```javascript
-const url = `/api/requests/nearby?lat=${lat}&lng=${lng}&maxBudget=50&radiusKm=15&sortBy=distance`;
+const url = `/api/requests/nearby?lat=${lat}&lng=${lng}&startDate=2025-10-05&endDate=2025-10-05&maxBudget=50&radiusKm=15&sortBy=distance`;
 ```
 
-#### Example 3: Evening rides on route
+#### Example 3: Evening rides on route this weekend
 ```javascript
-const url = `/api/requests/nearby?lat=${startLat}&lng=${startLng}&latEnd=${endLat}&lngEnd=${endLng}&startTime=17:00&endTime=22:00`;
+const url = `/api/requests/nearby?lat=${startLat}&lng=${startLng}&latEnd=${endLat}&lngEnd=${endLng}&startDate=2025-10-12&endDate=2025-10-13&startTime=17:00&endTime=22:00`;
+```
+
+#### Example 4: Rides this week on my route
+```javascript
+const url = `/api/requests/nearby?lat=${lat}&lng=${lng}&latEnd=${endLat}&lngEnd=${endLng}&startDate=2025-10-05&endDate=2025-10-12&sortBy=budget_desc`;
 ```
 
 ### TypeScript Interface
@@ -54,7 +61,9 @@ interface RequestSearchParams {
   latEnd?: number;
   lngEnd?: number;
   
-  // Optional - Time
+  // Optional - Date & Time
+  startDate?: string;  // "YYYY-MM-DD"
+  endDate?: string;    // "YYYY-MM-DD"
   startTime?: string;  // "HH:MM"
   endTime?: string;    // "HH:MM"
   
@@ -79,6 +88,8 @@ interface RequestSearchResponse {
     radiusKm?: number;
     endLat?: number;
     endLng?: number;
+    startDate?: string;
+    endDate?: string;
     startTime?: string;
     endTime?: string;
     minBudget?: number;
@@ -117,7 +128,11 @@ interface RequestSearchResponse {
 
 ✅ **All new parameters are optional** - old code works without changes!
 
+✅ **Date format is YYYY-MM-DD** - use ISO date format (e.g., "2025-10-06", "2025-12-31")
+
 ✅ **Time format is HH:MM** - use 24-hour format (e.g., "08:00", "14:30", "23:45")
+
+✅ **Dates are inclusive** - both startDate and endDate include rides on those dates
 
 ✅ **maxSeatsNeeded is inclusive** - if driver has 4 seats, use `maxSeatsNeeded=4` to see 1-4 seat requests
 
@@ -130,6 +145,10 @@ interface RequestSearchResponse {
 #### Filter Panel
 ```jsx
 <FilterPanel>
+  <DateRange 
+    startDate={startDate} 
+    endDate={endDate} 
+  />
   <TimeRange 
     startTime={startTime} 
     endTime={endTime} 
@@ -152,6 +171,7 @@ interface RequestSearchResponse {
 #### Smart Defaults
 ```javascript
 const defaultParams = {
+  startDate: new Date().toISOString().split('T')[0], // Today
   radiusKm: 30,
   sortBy: 'distance',
   maxSeatsNeeded: vehicleCapacity, // From driver profile

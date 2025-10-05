@@ -27,13 +27,25 @@ This API endpoint allows drivers/providers to search for transportation requests
 
 | Parameter | Type | Default | Description | Example |
 |-----------|------|---------|-------------|---------|
+| `startDate` | string | - | Minimum date (YYYY-MM-DD format) | `2025-10-06` |
+| `endDate` | string | - | Maximum date (YYYY-MM-DD format) | `2025-10-15` |
 | `startTime` | string | - | Minimum time of day (24-hour format HH:MM) | `08:00` |
 | `endTime` | string | - | Maximum time of day (24-hour format HH:MM) | `18:00` |
+
+**Date Filter Examples:**
+- Show only rides on a specific date: `startDate=2025-10-06&endDate=2025-10-06`
+- Show rides this week: `startDate=2025-10-05&endDate=2025-10-12`
+- Show rides starting from tomorrow: `startDate=2025-10-06`
+- Show rides until end of month: `endDate=2025-10-31`
 
 **Time Filter Examples:**
 - Show only morning rides: `startTime=06:00&endTime=12:00`
 - Show only evening rides: `startTime=17:00&endTime=23:00`
 - Show business hours: `startTime=08:00&endTime=18:00`
+
+**Combined Date & Time Examples:**
+- Morning rides tomorrow: `startDate=2025-10-06&endDate=2025-10-06&startTime=06:00&endTime=12:00`
+- Evening rides this weekend: `startDate=2025-10-12&endDate=2025-10-13&startTime=17:00&endTime=23:00`
 
 ### Optional Parameters - Budget Filtering
 
@@ -82,22 +94,27 @@ Returns all nearby requests within 30km, sorted by distance.
 
 ### Example 2: Advanced Search with All Filters
 ```
-GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&radiusKm=50&startTime=08:00&endTime=18:00&minBudget=20&maxBudget=100&maxSeatsNeeded=4&sortBy=budget_desc
+GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&radiusKm=50&startDate=2025-10-06&endDate=2025-10-10&startTime=08:00&endTime=18:00&minBudget=20&maxBudget=100&maxSeatsNeeded=4&sortBy=budget_desc
 ```
 
-### Example 3: Find High-Budget Morning Rides
+### Example 3: Find Rides Tomorrow Morning
 ```
-GET /api/requests/nearby?lat=33.5138&lng=36.2765&startTime=06:00&endTime=12:00&minBudget=50&sortBy=budget_desc
+GET /api/requests/nearby?lat=33.5138&lng=36.2765&startDate=2025-10-06&endDate=2025-10-06&startTime=06:00&endTime=12:00&sortBy=budget_desc
 ```
 
-### Example 4: Find Budget-Friendly Rides for Small Vehicle
+### Example 4: Find High-Budget Rides This Week
+```
+GET /api/requests/nearby?lat=33.5138&lng=36.2765&startDate=2025-10-05&endDate=2025-10-12&minBudget=50&sortBy=budget_desc
+```
+
+### Example 5: Find Budget-Friendly Rides for Small Vehicle
 ```
 GET /api/requests/nearby?lat=33.5138&lng=36.2765&maxBudget=40&maxSeatsNeeded=2&sortBy=distance
 ```
 
-### Example 5: Evening Rides on a Specific Route
+### Example 6: Evening Rides on a Specific Route This Weekend
 ```
-GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&startTime=17:00&endTime=22:00&sortBy=time_asc
+GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&startDate=2025-10-12&endDate=2025-10-13&startTime=17:00&endTime=22:00&sortBy=time_asc
 ```
 
 ## Response Format
@@ -111,6 +128,8 @@ GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&s
     "radiusKm": 30,
     "endLat": 33.52,
     "endLng": 36.28,
+    "startDate": "2025-10-06",
+    "endDate": "2025-10-10",
     "startTime": "08:00",
     "endTime": "18:00",
     "minBudget": 20,
@@ -168,9 +187,16 @@ GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&s
 ### Backward Compatibility
 ✅ **Old API calls will continue to work!** If you only send `lat`, `lng`, and optionally `radiusKm`, the API will behave exactly as before.
 
+### Date Format
+- Use ISO date format: `YYYY-MM-DD` (e.g., `2025-10-06`, `2025-12-31`)
+- Dates are inclusive (both startDate and endDate include rides on those dates)
+- If only `startDate` is provided, shows all rides from that date onwards
+- If only `endDate` is provided, shows all rides up to and including that date
+
 ### Time Format
 - Use 24-hour format: `HH:MM` (e.g., `08:00`, `13:30`, `23:45`)
 - Time filters apply to the time of day only, not the date
+- Can be combined with date filters for precise control
 
 ### Budget Format
 - Send as decimal numbers without currency symbols
@@ -188,19 +214,19 @@ GET /api/requests/nearby?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&s
 
 ### Common Use Cases
 
-#### Use Case 1: Driver with 4-seat vehicle looking for profitable morning rides
+#### Use Case 1: Driver with 4-seat vehicle looking for profitable morning rides tomorrow
 ```
-?lat=33.5138&lng=36.2765&maxSeatsNeeded=4&startTime=06:00&endTime=12:00&sortBy=budget_desc
-```
-
-#### Use Case 2: Driver searching for rides on their daily commute route
-```
-?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&radiusKm=20&sortBy=distance
+?lat=33.5138&lng=36.2765&maxSeatsNeeded=4&startDate=2025-10-06&endDate=2025-10-06&startTime=06:00&endTime=12:00&sortBy=budget_desc
 ```
 
-#### Use Case 3: Driver looking for quick budget rides nearby
+#### Use Case 2: Driver searching for rides on their daily commute route this week
 ```
-?lat=33.5138&lng=36.2765&radiusKm=15&maxBudget=30&sortBy=distance
+?lat=33.5138&lng=36.2765&latEnd=33.5200&lngEnd=36.2800&radiusKm=20&startDate=2025-10-05&endDate=2025-10-12&sortBy=distance
+```
+
+#### Use Case 3: Driver looking for quick budget rides nearby today
+```
+?lat=33.5138&lng=36.2765&radiusKm=15&maxBudget=30&startDate=2025-10-05&endDate=2025-10-05&sortBy=distance
 ```
 
 ## Testing Tips

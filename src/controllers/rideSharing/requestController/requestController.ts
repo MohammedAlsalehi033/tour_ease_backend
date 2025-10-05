@@ -90,6 +90,7 @@ export default class RequestController {
         latEnd, 
         lngEnd,
         // New filtering parameters
+        date,                // Date filter (YYYY-MM-DD) - show rides on this specific day
         startTime,           // Time of day filter start (HH:MM format or ISO string)
         endTime,             // Time of day filter end (HH:MM format or ISO string)
         minBudget,           // Minimum budget filter
@@ -133,12 +134,13 @@ export default class RequestController {
         radiusKm: radiusKm ? Number(radiusKm) : 30,
         endLat: latEnd && lngEnd ? Number(latEnd) : undefined,
         endLng: latEnd && lngEnd ? Number(lngEnd) : undefined,
+        date: date ? String(date) : undefined,
         startTime: startTime ? String(startTime) : undefined,
         endTime: endTime ? String(endTime) : undefined,
         minBudget: minBudget ? Number(minBudget) : undefined,
         maxBudget: maxBudget ? Number(maxBudget) : undefined,
         maxSeatsNeeded: maxSeatsNeeded ? Number(maxSeatsNeeded) : undefined,
-        sortBy: sortBy ? String(sortBy) : 'distance'
+        sortBy: (sortBy ? String(sortBy) : 'distance') as 'distance' | 'budget_asc' | 'budget_desc' | 'time_asc' | 'time_desc'
       };
 
       const results = await this.requestModel.searchNearbyRequests(
