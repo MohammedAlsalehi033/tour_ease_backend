@@ -5,6 +5,19 @@ interface NearbyTransportationRequest extends TransportationRequest {
   distance_km: number;
 }
 
+// Filter options interface for enhanced search
+interface SearchFilterOptions {
+  radiusKm?: number;
+  endLat?: number;
+  endLng?: number;
+  startTime?: string;      // Time of day filter start (HH:MM or ISO)
+  endTime?: string;        // Time of day filter end (HH:MM or ISO)
+  minBudget?: number;      // Minimum budget
+  maxBudget?: number;      // Maximum budget
+  maxSeatsNeeded?: number; // Show requests with <= this number of seats
+  sortBy?: 'distance' | 'budget_asc' | 'budget_desc' | 'time_asc' | 'time_desc';
+}
+
 export default class RequestModel {
 
   async createRequest(
@@ -45,11 +58,22 @@ export default class RequestModel {
 async searchNearbyRequests(
   startLat: number,
   startLng: number,
-  endLat?: number,
-  endLng?: number,
-  radiusKm: number = 30
+  options: SearchFilterOptions = {}
 ): Promise<any[]> {
   try {
+    // Extract options with defaults for backward compatibility
+    const {
+      radiusKm = 30,
+      endLat,
+      endLng,
+      startTime,
+      endTime,
+      minBudget,
+      maxBudget,
+      maxSeatsNeeded,
+      sortBy = 'distance'
+    } = options;
+
     // Base query with selection including user fields
     let query = `
       SELECT
@@ -101,31 +125,89 @@ async searchNearbyRequests(
       `;
     }
 
+    // Future departures only
     query += `
       AND tr."departureTime" > NOW()
     `;
 
-    if (endLat !== undefined && endLng !== undefined) {
+    // Time of day filter (e.g., only show rides between 8:00 AM and 6:00 PM)
+    if (startTime) {
       query += `
-        ORDER BY (
-          ST_Distance(
-            ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
-            ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography
-          ) / 1000 +
-          ST_Distance(
-            ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
-            ST_SetSRID(ST_MakePoint(tr."endLocationLng", tr."endLocationLat"), 4326)::geography
-          ) / 1000
-        ) ASC
-      `;
-    } else {
-      query += `
-        ORDER BY ST_Distance(
-          ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography
-        ) / 1000 ASC
+        AND EXTRACT(HOUR FROM tr."departureTime") * 60 + EXTRACT(MINUTE FROM tr."departureTime") 
+        >= EXTRACT(HOUR FROM TIME '${startTime}') * 60 + EXTRACT(MINUTE FROM TIME '${startTime}')
       `;
     }
+
+    if (endTime) {
+      query += `
+        AND EXTRACT(HOUR FROM tr."departureTime") * 60 + EXTRACT(MINUTE FROM tr."departureTime") 
+        <= EXTRACT(HOUR FROM TIME '${endTime}') * 60 + EXTRACT(MINUTE FROM TIME '${endTime}')
+      `;
+    }
+
+    // Budget range filter
+    if (minBudget !== undefined) {
+      query += `
+        AND tr."budget" >= ${minBudget}
+      `;
+    }
+
+    if (maxBudget !== undefined) {
+      query += `
+        AND tr."budget" <= ${maxBudget}
+      `;
+    }
+
+    // Seats needed filter - show requests with equal or fewer seats
+    // Example: If driver can take 4 passengers, show requests for 1, 2, 3, or 4 seats
+    if (maxSeatsNeeded !== undefined) {
+      query += `
+        AND tr."seatsNeeded" <= ${maxSeatsNeeded}
+      `;
+    }
+
+    // Sorting logic
+    let orderByClause = '';
+    switch (sortBy) {
+      case 'budget_asc':
+        orderByClause = 'ORDER BY tr."budget" ASC';
+        break;
+      case 'budget_desc':
+        orderByClause = 'ORDER BY tr."budget" DESC';
+        break;
+      case 'time_asc':
+        orderByClause = 'ORDER BY tr."departureTime" ASC';
+        break;
+      case 'time_desc':
+        orderByClause = 'ORDER BY tr."departureTime" DESC';
+        break;
+      case 'distance':
+      default:
+        // Sort by distance (combined if end location provided)
+        if (endLat !== undefined && endLng !== undefined) {
+          orderByClause = `
+            ORDER BY (
+              ST_Distance(
+                ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
+                ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography
+              ) / 1000 +
+              ST_Distance(
+                ST_SetSRID(ST_MakePoint(${endLng}, ${endLat}), 4326)::geography,
+                ST_SetSRID(ST_MakePoint(tr."endLocationLng", tr."endLocationLat"), 4326)::geography
+              ) / 1000
+            ) ASC
+          `;
+        } else {
+          orderByClause = `
+            ORDER BY ST_Distance(
+              ST_SetSRID(ST_MakePoint(${startLng}, ${startLat}), 4326)::geography,
+              ST_SetSRID(ST_MakePoint(tr."startLocationLng", tr."startLocationLat"), 4326)::geography
+            ) / 1000 ASC
+          `;
+        }
+    }
+
+    query += orderByClause;
 
     const rows = await prisma.$queryRawUnsafe(query);
     const formatted = rows.map((row: any) => {

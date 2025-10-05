@@ -83,8 +83,22 @@ export default class RequestController {
 
   async findNearbyRequests(req: Request, res: Response) {
     try {
-      const { lat, lng, radiusKm = 30 , latEnd, lngEnd} = req.query; 
+      const { 
+        lat, 
+        lng, 
+        radiusKm = 30, 
+        latEnd, 
+        lngEnd,
+        // New filtering parameters
+        startTime,           // Time of day filter start (HH:MM format or ISO string)
+        endTime,             // Time of day filter end (HH:MM format or ISO string)
+        minBudget,           // Minimum budget filter
+        maxBudget,           // Maximum budget filter
+        maxSeatsNeeded,      // Maximum seats needed (shows requests with <= this value)
+        sortBy = 'distance'  // Sort by: 'distance', 'budget_asc', 'budget_desc', 'time_asc', 'time_desc'
+      } = req.query; 
 
+      // Validate required parameters
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
           success: false, 
@@ -92,13 +106,48 @@ export default class RequestController {
         });
       }
 
+      // Validate optional numeric parameters
+      if (minBudget && isNaN(Number(minBudget))) {
+        return res.status(400).json({
+          success: false, 
+          error: 'minBudget must be a valid number'
+        });
+      }
+
+      if (maxBudget && isNaN(Number(maxBudget))) {
+        return res.status(400).json({
+          success: false, 
+          error: 'maxBudget must be a valid number'
+        });
+      }
+
+      if (maxSeatsNeeded && isNaN(Number(maxSeatsNeeded))) {
+        return res.status(400).json({
+          success: false, 
+          error: 'maxSeatsNeeded must be a valid number'
+        });
+      }
+
+      // Build filter options object
+      const filterOptions = {
+        radiusKm: radiusKm ? Number(radiusKm) : 30,
+        endLat: latEnd && lngEnd ? Number(latEnd) : undefined,
+        endLng: latEnd && lngEnd ? Number(lngEnd) : undefined,
+        startTime: startTime ? String(startTime) : undefined,
+        endTime: endTime ? String(endTime) : undefined,
+        minBudget: minBudget ? Number(minBudget) : undefined,
+        maxBudget: maxBudget ? Number(maxBudget) : undefined,
+        maxSeatsNeeded: maxSeatsNeeded ? Number(maxSeatsNeeded) : undefined,
+        sortBy: sortBy ? String(sortBy) : 'distance'
+      };
+
       const results = await this.requestModel.searchNearbyRequests(
         Number(lat), 
         Number(lng), 
-        latEnd && lngEnd ? Number(latEnd) : undefined,
-        latEnd && lngEnd ? Number(lngEnd) : undefined,
-        radiusKm ? Number(radiusKm) : 30
+        filterOptions
       );
+
+      // Sign S3 URLs for user media
       const resultsWithSigned = await Promise.all(
         results.map(async (request: any) => {
           if (request?.user?.mediaUrls?.length > 0) {
@@ -114,7 +163,8 @@ export default class RequestController {
       return res.status(200).json({
         success: true,
         count: resultsWithSigned.length,
-        data: resultsWithSigned
+        data: resultsWithSigned,
+        filters: filterOptions // Return applied filters for frontend reference
       });
     } catch (error) {
       console.error("Error in findNearbyRequests controller:", error);
