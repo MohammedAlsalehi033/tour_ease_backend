@@ -206,4 +206,28 @@ export class PrismaQuestionModel extends BaseModel<any> {
       });
     });
   }
+
+
+  async searchQuestionsByTag(tag: string, page = 1, limit = 10): Promise<Question[]> {
+    const skip = (page - 1) * limit;
+    return prisma.question.findMany({
+      where: { tags: { has: tag } },
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            mediaUrls: true,
+          },
+        },
+        _count: {
+          select: { comments: true },
+        },
+      },
+    });
+  }
+  
 }

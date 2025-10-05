@@ -258,6 +258,33 @@ class QuestionController {
       });
     }
   }
+
+  async searchQuestionsByTag(req, res) {
+    try {
+      const { tag } = req.params;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+     if (!tag) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tag parameter is required'
+        });
+      }
+     
+      const questions = await this.questionModel.searchQuestionsByTag(tag, page, limit);
+      res.status(200).json({
+        success: true,
+        data: questions
+      });
+    } catch (error : any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+
   
   async voteQuestion(req, res) {
     try {
