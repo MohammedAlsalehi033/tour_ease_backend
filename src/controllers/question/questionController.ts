@@ -15,7 +15,7 @@ class QuestionController {
     this.questionModel = questionModel;
     this.fileUploader = fileUploader;
 
-    const genAI = new GoogleGenerativeAI("REMOVED_API_KEY"); // Replace with your actual API key
+    const genAI = new GoogleGenerativeAI("REMOVED_GEMINI_KEY"); // Replace with your actual API key
     
      this.model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
