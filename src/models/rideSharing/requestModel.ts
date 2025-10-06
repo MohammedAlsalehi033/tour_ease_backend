@@ -16,6 +16,7 @@ interface SearchFilterOptions {
   minBudget?: number;      // Minimum budget
   maxBudget?: number;      // Maximum budget
   maxSeatsNeeded?: number; // Show requests with <= this number of seats
+  luggage?: number;        // Number of luggage pieces
   sortBy?: 'distance' | 'budget_asc' | 'budget_desc' | 'time_asc' | 'time_desc';
 }
 
@@ -32,6 +33,7 @@ export default class RequestModel {
     departureTime: Date,
     seatsNeeded: number,
     budget: number,
+    luggage?: number
 ): Promise<TransportationRequest> {
   try {
     const newRequest = await prisma.transportationRequest.create({
@@ -45,7 +47,8 @@ export default class RequestModel {
         endLocationLng,
         departureTime,
         seatsNeeded,
-        budget: budget,  
+        budget: budget,
+        luggage: luggage !== undefined ? luggage : 4,
       },
     });
 
@@ -73,6 +76,7 @@ async searchNearbyRequests(
       minBudget,
       maxBudget,
       maxSeatsNeeded,
+      luggage = 0,
       sortBy = 'distance'
     } = options;
 
@@ -174,6 +178,11 @@ async searchNearbyRequests(
         AND tr."seatsNeeded" <= ${maxSeatsNeeded}
       `;
     }
+
+    // Luggage filter
+    query += `
+      AND tr."luggage" >= ${luggage}
+    `;
 
     // Sorting logic
     let orderByClause = '';

@@ -19,6 +19,7 @@ export default class ListingModel {
     seatsAvailable: number,
     mediaUrls: string[] = [],
     status: string = "active",
+    luggage?: number
   ): Promise<TransportationListing> {
     try {
       const newListing = await prisma.transportationListing.create({
@@ -35,6 +36,7 @@ export default class ListingModel {
           seatsAvailable,
           mediaUrls,
           status,
+          luggage: luggage !== undefined ? luggage : 4,
         },
       });
       return newListing;
@@ -53,7 +55,8 @@ async searchNearbyListings(
   minSeats: number = 0,
   maxPrice?: number,
   departureAfter?: Date,
-  departureBefore?: Date
+  departureBefore?: Date,
+  luggage: number = 0
 ): Promise<any> {
   try {
     let query = `
@@ -164,6 +167,11 @@ async searchNearbyListings(
       params.push(departureBefore);
       paramIndex++;
     }
+
+    // Luggage filter
+    query += ` AND tl."luggage" >= $${paramIndex}`;
+    params.push(luggage);
+    paramIndex++;
 
     // Order by combined relevance if both start and end points provided
     if (endLat && endLng) {

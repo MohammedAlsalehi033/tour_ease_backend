@@ -26,6 +26,7 @@ export default class ListingController {
         seatsAvailable,
         mediaUrls,
         status,
+        luggage,
       } = req.body;
 
       if (
@@ -54,7 +55,8 @@ export default class ListingController {
         Number(pricePerSeat),
         Number(seatsAvailable),
         mediaUrls || [],
-        status || "active"
+        status || "active",
+        luggage !== undefined ? Number(luggage) : undefined
       );
 
       return res.status(200).json({
@@ -82,11 +84,12 @@ export default class ListingController {
         maxPrice: queryMaxPrice,
         departureAfter: queryDepartureAfter,
         departureBefore: queryDepartureBefore,
+        luggage: queryLuggage,
       } = req.query;
 
 
 
-    console.log(lat, lng, queryEndLat, queryEndLng, queryRadiusKm, queryMinSeats, queryMaxPrice, queryDepartureAfter, queryDepartureBefore)
+    console.log(lat, lng, queryEndLat, queryEndLng, queryRadiusKm, queryMinSeats, queryMaxPrice, queryDepartureAfter, queryDepartureBefore, queryLuggage)
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
           success: false,
@@ -107,6 +110,7 @@ export default class ListingController {
       const pDepartureBefore = queryDepartureBefore
         ? new Date(queryDepartureBefore as string)
         : undefined;
+      const pLuggage = queryLuggage ? Number(queryLuggage) : 0;
 
       const results = await this.listingModel.searchNearbyListings(
         pStartLat,
@@ -117,7 +121,8 @@ export default class ListingController {
         pMinSeats,
         pMaxPrice,
         pDepartureAfter,
-        pDepartureBefore
+        pDepartureBefore,
+        pLuggage
       );
 
 

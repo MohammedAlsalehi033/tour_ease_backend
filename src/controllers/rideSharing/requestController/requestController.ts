@@ -25,7 +25,8 @@ export default class RequestController {
         endLocationLng,
         departureTime,
         seatsNeeded,
-        budget
+        budget,
+        luggage
       } = req.body;
 
       if (!travelerId || !startLocationText || !endLocationText || 
@@ -49,7 +50,8 @@ export default class RequestController {
         endLocationLng,
         departureTime instanceof Date ? departureTime :new Date(departureTime),
         Number(seatsNeeded),
-        Number(budget)
+        Number(budget),
+        luggage !== undefined ? Number(luggage) : undefined
       );
 
       // Notify traveler that their request was created
@@ -89,14 +91,14 @@ export default class RequestController {
         radiusKm = 30, 
         latEnd, 
         lngEnd,
-        // New filtering parameters
-        date,                // Date filter (YYYY-MM-DD) - show rides on this specific day
-        startTime,           // Time of day filter start (HH:MM format or ISO string)
-        endTime,             // Time of day filter end (HH:MM format or ISO string)
-        minBudget,           // Minimum budget filter
-        maxBudget,           // Maximum budget filter
-        maxSeatsNeeded,      // Maximum seats needed (shows requests with <= this value)
-        sortBy = 'distance'  // Sort by: 'distance', 'budget_asc', 'budget_desc', 'time_asc', 'time_desc'
+        date,
+        startTime,
+        endTime,
+        minBudget,
+        maxBudget,
+        maxSeatsNeeded,
+        luggage,
+        sortBy = 'distance'
       } = req.query; 
 
       // Validate required parameters
@@ -129,6 +131,13 @@ export default class RequestController {
         });
       }
 
+      if (luggage && isNaN(Number(luggage))) {
+        return res.status(400).json({
+          success: false, 
+          error: 'luggage must be a valid number'
+        });
+      }
+
       // Build filter options object
       const filterOptions = {
         radiusKm: radiusKm ? Number(radiusKm) : 30,
@@ -140,6 +149,7 @@ export default class RequestController {
         minBudget: minBudget ? Number(minBudget) : undefined,
         maxBudget: maxBudget ? Number(maxBudget) : undefined,
         maxSeatsNeeded: maxSeatsNeeded ? Number(maxSeatsNeeded) : undefined,
+        luggage: luggage ? Number(luggage) : 0,
         sortBy: (sortBy ? String(sortBy) : 'distance') as 'distance' | 'budget_asc' | 'budget_desc' | 'time_asc' | 'time_desc'
       };
 
