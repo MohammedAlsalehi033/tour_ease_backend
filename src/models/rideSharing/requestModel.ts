@@ -48,7 +48,7 @@ export default class RequestModel {
         departureTime,
         seatsNeeded,
         budget: budget,
-        luggage: luggage !== undefined ? luggage : 4,
+        luggage: luggage !== undefined ? luggage : 0,
       },
     });
 
@@ -67,7 +67,7 @@ async searchNearbyRequests(
   try {
     // Extract options with defaults for backward compatibility
     const {
-      radiusKm = 30,
+      radiusKm = 20,
       endLat,
       endLng,
       date,
@@ -179,10 +179,13 @@ async searchNearbyRequests(
       `;
     }
 
-    // Luggage filter
-    query += `
-      AND tr."luggage" >= ${luggage}
-    `;
+    // Luggage filter - show requests with equal or fewer luggage
+    // Example: If driver can handle 4 luggage, show requests with 0, 1, 2, 3, or 4 luggage
+    if (luggage !== undefined && luggage > 0) {
+      query += `
+        AND tr."luggage" <= ${luggage}
+      `;
+    }
 
     // Sorting logic
     let orderByClause = '';

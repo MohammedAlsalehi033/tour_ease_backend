@@ -51,7 +51,7 @@ async searchNearbyListings(
   startLng: number,
   endLat?: number,
   endLng?: number,
-  radiusKm: number = 100000,
+  radiusKm: number = 20,
   minSeats: number = 0,
   maxPrice?: number,
   departureAfter?: Date,
@@ -144,11 +144,18 @@ async searchNearbyListings(
       AND tl."status" = 'active'
       AND tl."seatsAvailable" > 0
       AND tl."departureTime" > NOW()
-      AND tl."seatsAvailable" >= ${minSeats}
     `;
 
     const params: any[] = [];
     let paramIndex = 1;
+
+    // Seats filter - show listings with equal or more seats available
+    // Example: If traveler needs 3 seats, show listings with 3, 4, 5... seats
+    if (minSeats > 0) {
+      query += ` AND tl."seatsAvailable" >= $${paramIndex}`;
+      params.push(minSeats);
+      paramIndex++;
+    }
 
     if (maxPrice !== undefined) {
       query += ` AND tl."pricePerSeat" <= $${paramIndex}`;
@@ -168,10 +175,13 @@ async searchNearbyListings(
       paramIndex++;
     }
 
-    // Luggage filter
-    query += ` AND tl."luggage" >= $${paramIndex}`;
-    params.push(luggage);
-    paramIndex++;
+    // Luggage filter - show listings with equal or more luggage capacity
+    // Example: If traveler has 2 luggage, show listings that can handle 2, 3, 4... luggage
+    if (luggage > 0) {
+      query += ` AND tl."luggage" >= $${paramIndex}`;
+      params.push(luggage);
+      paramIndex++;
+    }
 
     // Order by combined relevance if both start and end points provided
     if (endLat && endLng) {

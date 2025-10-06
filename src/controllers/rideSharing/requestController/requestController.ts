@@ -59,7 +59,7 @@ export default class RequestController {
         const notifier = container.resolve(FirebaseNotifier);
         await notifier.sendContextualNotification(travelerId, 'REQUEST', {
           title: "Ride Request Posted Successfully",
-          body: `Your ride request from ${startLocationText} to ${endLocationText} has been posted and is now visible to transportation providers.`,
+          body: `Your ride request from ${startLocationText} to ${endLocationText} with ${seatsNeeded} seat(s) and ${luggage !== undefined ? luggage : 4} luggage bag(s) has been posted and is now visible to transportation providers.`,
           priority: 'normal',
           actionRequired: false,
           actionUrl: `/requests/${newRequest.id}`,
