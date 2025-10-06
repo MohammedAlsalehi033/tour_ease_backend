@@ -15,8 +15,40 @@ export class transportationBookingModel {
         },
         // You might want to include related data, for example:
         include: {
-          listing: true, // Include details of the associated listing
-          request: true, // Include details of the associated request
+          listing: {
+            include: {
+              provider: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      mediaUrls: true,
+                      phoneNumber: true,
+                      email: true,
+                    },
+                  },
+                },
+              },
+            },
+          }, // Include details of the associated listing with provider info
+          request: {
+            include: {
+              provider: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      mediaUrls: true,
+                      phoneNumber: true,
+                      email: true,
+                    },
+                  },
+                },
+              },
+            },
+          }, // Include details of the associated request with provider info
           offer: true, // Include details of the associated offer
         },
       });
