@@ -32,24 +32,27 @@ export class transportationBookingModel {
               },
             },
           }, // Include details of the associated listing with provider info
-          request: {
+          request: true, // Include details of the associated request
+          offer: {
             include: {
-              provider: {
-                include: {
-                  user: {
+              sender: {
+                select: {
+                  id: true,
+                  username: true,
+                  mediaUrls: true,
+                  phoneNumber: true,
+                  email: true,
+                  transportationProvider: {
                     select: {
-                      id: true,
-                      username: true,
-                      mediaUrls: true,
-                      phoneNumber: true,
-                      email: true,
+                      vehicleType: true,
+                      vehicleMediaUrls: true,
+                      seatsAvailable: true,
                     },
                   },
                 },
               },
             },
-          }, // Include details of the associated request with provider info
-          offer: true, // Include details of the associated offer
+          }, // Include offer details with sender (provider) info for request bookings
         },
       });
       return bookings;
