@@ -101,6 +101,7 @@ export default class RequestController {
         sortBy = 'distance'
       } = req.query; 
 
+      console.log("Query Parameters:", req.query);
       // Validate required parameters
       if (!lat || !lng || isNaN(Number(lat)) || isNaN(Number(lng))) {
         return res.status(400).json({
