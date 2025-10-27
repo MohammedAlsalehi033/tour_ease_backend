@@ -1,0 +1,124 @@
+╔════════════════════════════════════════════════════════════════════╗
+║           SMART TRIP PLANNER - USER WORKFLOW                       ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────┐
+│ Step 1: USER SEARCH                                                │
+├────────────────────────────────────────────────────────────────────┤
+│ User enters:                                                       │
+│  • From: Cairo                                                     │
+│  • To: Alexandria                                                  │
+│  • Dates: Nov 1-5                                                  │
+│  • Travelers: 3                                                    │
+│  • Budget: $5,000                                                  │
+│  • Interests: beaches, museums                                     │
+│                                                                    │
+│ [Search Plans Button]                                              │
+└────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌────────────────────────────────────────────────────────────────────┐
+│ Step 2: SYSTEM SHOWS ALL OPTIONS                                   │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│ ╔═══════════════════════════════════════════════════════════════╗ │
+│ ║ 🌟 OPTIMAL PLAN (AI Recommended)                             ║ │
+│ ║ ───────────────────────────────────────────────────────────── ║ │
+│ ║ Seaside Resort with SUV                                      ║ │
+│ ║ Score: 87.5/100 | Total: $3,270                              ║ │
+│ ║                                                               ║ │
+│ ║ 🚗 Outbound: SUV - Ahmed (⭐4.5) - $450                       ║ │
+│ ║ 🏨 Stay: Seaside Resort (⭐4.7) - $2,400                      ║ │
+│ ║ 🚗 Return: Sedan - Mohamed (⭐4.8) - $420                     ║ │
+│ ║                                                               ║ │
+│ ║ [✅ Book This Plan]  [🔧 Customize]                           ║ │
+│ ╚═══════════════════════════════════════════════════════════════╝ │
+│                                                                    │
+│ Alternative Plans:                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐   │
+│ │ Plan 2: Budget Option - $2,180 (Score: 72/100)             │   │
+│ │ Plan 3: Luxury Option - $4,850 (Score: 81/100)             │   │
+│ └─────────────────────────────────────────────────────────────┘   │
+│                                                                    │
+│ Browse All Options:                                                │
+│ ┌─────────────────────────────────────────────────────────────┐   │
+│ │ [Outbound (5)] [Return (3)] [Hotels (4)] [Activities (8)]  │   │
+│ └─────────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────┘
+                       ↓                    ↓
+          User clicks "Book This"    OR    "Customize"
+                       ↓                    ↓
+                       │              ┌─────────────────────────────┐
+                       │              │ Step 3a: CUSTOMIZATION      │
+                       │              ├─────────────────────────────┤
+                       │              │ Select Outbound:            │
+                       │              │ ○ SUV - $450 ⭐4.5          │
+                       │              │ ● Minibus - $300 ⭐4.2      │
+                       │              │ ○ Sedan - $350 ⭐4.6        │
+                       │              │                             │
+                       │              │ Select Hotel:               │
+                       │              │ ○ Seaside Resort - $2,400   │
+                       │              │ ● Budget Hotel - $1,600     │
+                       │              │ ○ Luxury Hotel - $3,800     │
+                       │              │                             │
+                       │              │ Select Return:              │
+                       │              │ ● Sedan - $420 ⭐4.8        │
+                       │              │ ○ Minibus - $280 ⭐4.3      │
+                       │              │                             │
+                       │              │ New Total: $2,320           │
+                       │              │ [Confirm Selections]        │
+                       │              └─────────────────────────────┘
+                       │                         ↓
+                       └─────────────────────────┘
+                                     ↓
+┌────────────────────────────────────────────────────────────────────┐
+│ Step 4: BOOKING CONFIRMATION                                       │
+├────────────────────────────────────────────────────────────────────┤
+│ System processes:                                                  │
+│  1. Send offers to selected drivers (status: pending)             │
+│  2. Book selected accommodation rooms (status: confirmed)          │
+│  3. Create booking records                                         │
+│  4. Send notifications to providers                                │
+└────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌────────────────────────────────────────────────────────────────────┐
+│ Step 5: SUCCESS SCREEN                                             │
+├────────────────────────────────────────────────────────────────────┤
+│                    ✅ Booking Confirmed!                           │
+│                                                                    │
+│ Your Bookings:                                                     │
+│ ────────────────────────────────────────────                       │
+│ 🚗 Outbound Transport                                              │
+│    Status: ⏳ Pending Driver Approval                              │
+│    Booking ID: #501                                                │
+│    Offer sent to driver                                            │
+│                                                                    │
+│ 🏨 Accommodation                                                   │
+│    Status: ✅ Confirmed                                            │
+│    2 rooms at Seaside Resort                                       │
+│    Booking IDs: #601, #602                                         │
+│                                                                    │
+│ 🚗 Return Transport                                                │
+│    Status: ⏳ Pending Driver Approval                              │
+│    Booking ID: #502                                                │
+│                                                                    │
+│ ────────────────────────────────────────────                       │
+│ 💰 Total Cost: $3,270                                              │
+│                                                                    │
+│ [View My Bookings]  [Plan Another Trip]                            │
+└────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════
+KEY FEATURES
+═══════════════════════════════════════════════════════════════════
+
+✓ Shows ALL available options (not just recommendations)
+✓ AI recommends OPTIMAL combination (best value)
+✓ User can accept recommendation OR customize manually
+✓ Automatically allocates multiple rooms for groups
+✓ Handles return trips intelligently
+✓ Real-time cost calculation
+✓ One-click booking with optimal plan
+✓ Transparent pricing and ratings
+
+═══════════════════════════════════════════════════════════════════
