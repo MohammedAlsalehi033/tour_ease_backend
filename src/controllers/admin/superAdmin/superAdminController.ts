@@ -85,7 +85,7 @@ export class SuperAdminController {
             return;
         }
 
-        if( id === req.user.id) {
+        if( id === req.user?.id) {
             res.status(400).json({ error: "You cannot remove the super admin (very very important user)" });
             return;
         }

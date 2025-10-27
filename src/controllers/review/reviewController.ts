@@ -16,7 +16,10 @@ export class ReviewController {
         comment,
       } = req.body;
 
-      const reviewerId = req.user.id;
+      const reviewerId = req.user?.id;
+      if (!reviewerId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
 
       // Validate required fields
       if (!reviewableType || !reviewableId || !rating || !comment) {
@@ -168,7 +171,7 @@ export class ReviewController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -297,7 +300,7 @@ export class ReviewController {
           total: reviews.length,
         },
       });
-    } catch (error) {
+    } catch (error : any) {
       console.error('Error fetching reviews by reviewer:', error);
       res.status(500).json({
         success: false,
@@ -309,7 +312,10 @@ export class ReviewController {
 
   async getMyReviews(req: Request, res: Response) {
     try {
-      const reviewerId = req.user.id;
+      const reviewerId = req.user?.id;
+      if (!reviewerId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
       const { page = 1, limit = 10 } = req.query;
 
       const reviews = await reviewModel.getReviewsByReviewer(
@@ -332,7 +338,7 @@ export class ReviewController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -359,7 +365,7 @@ export class ReviewController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -369,7 +375,10 @@ export class ReviewController {
     try {
       const { id } = req.params;
       const { rating, comment } = req.body;
-      const userId = req.user.id;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
 
       // Validate rating if provided
       if (rating && (rating < 1 || rating > 5)) {
@@ -406,11 +415,11 @@ export class ReviewController {
         data: updatedReview,
       });
     } catch (error) {
-      console.error('Error updating review:', error);
+      console.error('Error creating review:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -419,8 +428,11 @@ export class ReviewController {
   async deleteReview(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
-      const userRole = req.user.role; // Assuming role is available in req.user
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      const userRole = req.user?.roles?.[0]?.role?.roleName; // Assuming role is available in req.user
 
       // Check if review exists
       const existingReview = await reviewModel.getItemById(id);
@@ -450,7 +462,7 @@ export class ReviewController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -470,11 +482,11 @@ export class ReviewController {
         data: stats,
       });
     } catch (error) {
-      console.error('Error fetching review stats:', error);
+      console.error('Error fetching review statistics:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -511,7 +523,7 @@ export class ReviewController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

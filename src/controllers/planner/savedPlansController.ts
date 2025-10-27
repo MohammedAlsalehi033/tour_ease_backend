@@ -64,7 +64,7 @@ export const saveTripPlan = async (req: Request, res: Response) => {
         status: 'draft'
       },
       include: {
-        selectedOutboundTransport: {
+        TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -73,7 +73,7 @@ export const saveTripPlan = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedReturnTransport: {
+        TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -82,7 +82,7 @@ export const saveTripPlan = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedAccommodation: {
+        Accommodation: {
           include: {
             rooms: true
           }
@@ -144,7 +144,7 @@ export const getSavedPlans = async (req: Request, res: Response) => {
     const savedPlans = await prisma.savedTripPlan.findMany({
       where,
       include: {
-        selectedOutboundTransport: {
+        TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -153,7 +153,7 @@ export const getSavedPlans = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedReturnTransport: {
+        TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -162,14 +162,14 @@ export const getSavedPlans = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedAccommodation: {
+        Accommodation: {
           include: {
             rooms: true
           }
         },
-        roomAllocations: {
+        SavedPlanRoomAllocation: {
           include: {
-            room: true
+            Room: true
           }
         }
       },
@@ -211,7 +211,7 @@ export const getSavedPlanById = async (req: Request, res: Response) => {
         userId
       },
       include: {
-        selectedOutboundTransport: {
+        TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -221,7 +221,7 @@ export const getSavedPlanById = async (req: Request, res: Response) => {
             reviews: { select: { rating: true } }
           }
         },
-        selectedReturnTransport: {
+        TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -231,15 +231,15 @@ export const getSavedPlanById = async (req: Request, res: Response) => {
             reviews: { select: { rating: true } }
           }
         },
-        selectedAccommodation: {
+        Accommodation: {
           include: {
             rooms: true,
             reviews: { select: { rating: true } }
           }
         },
-        roomAllocations: {
+        SavedPlanRoomAllocation: {
           include: {
-            room: {
+            Room: {
               include: {
                 accommodation: true
               }
@@ -344,7 +344,7 @@ export const updateSavedPlan = async (req: Request, res: Response) => {
       where: { id: parseInt(id) },
       data: updateData,
       include: {
-        selectedOutboundTransport: {
+        TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -353,7 +353,7 @@ export const updateSavedPlan = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedReturnTransport: {
+        TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing: {
           include: {
             provider: {
               include: {
@@ -362,14 +362,14 @@ export const updateSavedPlan = async (req: Request, res: Response) => {
             }
           }
         },
-        selectedAccommodation: {
+        Accommodation: {
           include: {
             rooms: true
           }
         },
-        roomAllocations: {
+        SavedPlanRoomAllocation: {
           include: {
-            room: true
+            Room: true
           }
         }
       }
@@ -473,12 +473,12 @@ export const bookSavedPlan = async (req: Request, res: Response) => {
         userId
       },
       include: {
-        selectedOutboundTransport: true,
-        selectedReturnTransport: true,
-        selectedAccommodation: true,
-        roomAllocations: {
+        TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing: true,
+        TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing: true,
+        Accommodation: true,
+        SavedPlanRoomAllocation: {
           include: {
-            room: true
+            Room: true
           }
         }
       }
@@ -501,7 +501,7 @@ export const bookSavedPlan = async (req: Request, res: Response) => {
     // Book outbound transport
     if (savedPlan.selectedOutboundTransportId && savedPlan.seatsNeeded) {
       try {
-        const transport = savedPlan.selectedOutboundTransport!;
+        const transport = savedPlan.TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing!;
         const totalPrice = Number(transport.pricePerSeat) * savedPlan.seatsNeeded;
 
         // Create offer
@@ -555,7 +555,7 @@ export const bookSavedPlan = async (req: Request, res: Response) => {
     // Book return transport
     if (savedPlan.selectedReturnTransportId && savedPlan.seatsNeeded) {
       try {
-        const transport = savedPlan.selectedReturnTransport!;
+        const transport = savedPlan.TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing!;
         const totalPrice = Number(transport.pricePerSeat) * savedPlan.seatsNeeded;
 
         const offer = await prisma.offer.create({
@@ -604,14 +604,14 @@ export const bookSavedPlan = async (req: Request, res: Response) => {
     }
 
     // Book accommodations
-    if (savedPlan.roomAllocations && savedPlan.roomAllocations.length > 0) {
-      for (const allocation of savedPlan.roomAllocations) {
+    if (savedPlan.SavedPlanRoomAllocation && savedPlan.SavedPlanRoomAllocation.length > 0) {
+      for (const allocation of savedPlan.SavedPlanRoomAllocation) {
         for (let i = 0; i < allocation.numberOfRooms; i++) {
           try {
             const numberOfNights = Math.ceil(
               (savedPlan.endTime.getTime() - savedPlan.startTime.getTime()) / (1000 * 60 * 60 * 24)
             );
-            const totalPrice = Number(allocation.room.pricePerNight) * numberOfNights;
+            const totalPrice = Number(allocation.Room.pricePerNight) * numberOfNights;
 
             const booking = await prisma.accommodationBooking.create({
               data: {
@@ -639,10 +639,10 @@ export const bookSavedPlan = async (req: Request, res: Response) => {
       }
 
       // Notify accommodation provider
-      if (savedPlan.selectedAccommodation && bookingResult.bookings.accommodationBookings.length > 0) {
+      if (savedPlan.Accommodation && bookingResult.bookings.accommodationBookings.length > 0) {
         await prisma.notification.create({
           data: {
-            userId: savedPlan.selectedAccommodation.providerId,
+            userId: savedPlan.Accommodation.providerId,
             message: `New booking from saved plan: ${bookingResult.bookings.accommodationBookings.length} room(s)`,
             type: 'accommodation_booking'
           }
