@@ -99,7 +99,7 @@ app.use('/api', rideSharingListingRoutes);
 app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
-app.use('/api', AIPlannerRoute);
+app.use('/api/planner', AIPlannerRoute);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reviews', reviewRoutes);
 
