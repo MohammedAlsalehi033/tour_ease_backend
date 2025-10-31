@@ -98,4 +98,4 @@ router.delete('/saved/:id', authMiddleware(), deleteSavedPlan);
  */
 router.post('/saved/:id/book', authMiddleware(), bookSavedPlan);
 
-export = router;
+module.exports = router
