@@ -25,29 +25,70 @@ export const generatePlan = async (req: Request, res: Response) => {
       numberOfTravelers = 1,
       needsReturnTransport = true,
       useAIOptimization = false,
-      maxIterations = 3
+      maxIterations = 3,
+      preferredTransportMode = 'Any',
+      specialRequirements
     } = req.body;
 
     // Validation
-    if (!startLocation || !endLocation || !startTime || !endTime || !budget) {
+    if (!startLocation || !endLocation || !startTime || !endTime || !budget || !numberOfTravelers) {
       return res.status(400).json({ 
-        error: 'Missing required fields: startLocation, endLocation, startTime, endTime, budget' 
+        success: false,
+        message: 'Missing required fields: startLocation, endLocation, startTime, endTime, budget, numberOfTravelers are required' 
       });
     }
 
     if (numberOfTravelers < 1) {
-      return res.status(400).json({ error: 'numberOfTravelers must be at least 1' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'numberOfTravelers must be at least 1' 
+      });
     }
 
     if (budget <= 0) {
-      return res.status(400).json({ error: 'budget must be greater than 0' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'budget must be greater than 0' 
+      });
+    }
+
+    // Parse dates if they're strings
+    const parsedStartTime = typeof startTime === 'string' ? new Date(startTime) : startTime;
+    const parsedEndTime = typeof endTime === 'string' ? new Date(endTime) : endTime;
+
+    // Validate dates
+    if (isNaN(parsedStartTime.getTime()) || isNaN(parsedEndTime.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format. Use ISO 8601 format (e.g., 2025-11-15T00:00:00.000Z)'
+      });
+    }
+
+    if (parsedEndTime <= parsedStartTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'endTime must be after startTime'
+      });
+    }
+
+    // Extract city name from "City, Country" format
+    const cleanStartLocation = startLocation.split(',')[0].trim();
+    const cleanEndLocation = endLocation.split(',')[0].trim();
+
+    console.log('📋 Processing trip request:');
+    console.log(`   Route: ${cleanStartLocation} → ${cleanEndLocation}`);
+    console.log(`   Budget: ${budget.toLocaleString()} PKR`);
+    console.log(`   Travelers: ${numberOfTravelers}`);
+    console.log(`   Duration: ${parsedStartTime.toLocaleDateString()} to ${parsedEndTime.toLocaleDateString()}`);
+    if (specialRequirements) {
+      console.log(`   Special Requirements: ${specialRequirements}`);
     }
 
     const planRequest: PlanGenerationRequest = {
-      startLocation,
-      endLocation,
-      startTime,
-      endTime,
+      startLocation: cleanStartLocation,
+      endLocation: cleanEndLocation,
+      startTime: parsedStartTime,
+      endTime: parsedEndTime,
       interests,
       budget,
       numberOfTravelers,
@@ -68,19 +109,71 @@ export const generatePlan = async (req: Request, res: Response) => {
       tripPlan = await PlannerModel.generateTripPlans(planRequest);
     }
 
+    // Filter accommodations by special requirements if provided
+    if (specialRequirements && tripPlan.availableOptions.accommodations.length > 0) {
+      const lowerReq = specialRequirements.toLowerCase();
+      
+      const originalCount = tripPlan.availableOptions.accommodations.length;
+      tripPlan.availableOptions.accommodations = tripPlan.availableOptions.accommodations.filter(acc => {
+        // Check for gym/fitness
+        if (lowerReq.includes('gym') || lowerReq.includes('fitness')) {
+          return acc.description?.toLowerCase().includes('gym') || 
+                 acc.description?.toLowerCase().includes('fitness') ||
+                 acc.name?.toLowerCase().includes('gym');
+        }
+        // Check for pool
+        if (lowerReq.includes('pool') || lowerReq.includes('swimming')) {
+          return acc.description?.toLowerCase().includes('pool') || 
+                 acc.description?.toLowerCase().includes('swimming');
+        }
+        // Check for spa
+        if (lowerReq.includes('spa')) {
+          return acc.description?.toLowerCase().includes('spa');
+        }
+        // Check for restaurant
+        if (lowerReq.includes('restaurant') || lowerReq.includes('dining')) {
+          return acc.description?.toLowerCase().includes('restaurant') || 
+                 acc.description?.toLowerCase().includes('dining');
+        }
+        return true; // If no specific requirement matched, include all
+      });
+
+      console.log(`   🔍 Filtered accommodations: ${tripPlan.availableOptions.accommodations.length}/${originalCount} match special requirements`);
+      
+      // Regenerate recommended plans with filtered accommodations
+      if (tripPlan.availableOptions.accommodations.length > 0) {
+        const filteredPlans = tripPlan.recommendedPlans.filter(plan => 
+          plan.accommodation && 
+          tripPlan.availableOptions.accommodations.some(acc => acc.id === plan.accommodation?.id)
+        );
+        tripPlan.recommendedPlans = filteredPlans;
+        tripPlan.optimalPlan = filteredPlans.length > 0 ? filteredPlans[0] : null;
+      } else {
+        tripPlan.recommendedPlans = [];
+        tripPlan.optimalPlan = null;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: tripPlan,
+      metadata: {
+        requestedBudget: budget,
+        budgetCurrency: 'PKR',
+        specialRequirementsApplied: !!specialRequirements,
+        requestProcessedAt: new Date().toISOString()
+      },
       message: useAIOptimization 
         ? 'AI-optimized trip plans generated successfully' 
         : 'Trip plans generated successfully'
     });
 
   } catch (error) {
-    console.error("Error in plan generation:", error);
+    console.error("❌ Error in plan generation:", error);
     res.status(500).json({ 
-      error: "An internal server error occurred.",
-      details: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      message: "Failed to generate trip plans",
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };

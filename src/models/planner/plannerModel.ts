@@ -215,39 +215,58 @@ export class PlannerModel {
   }
 
   /**
-   * Find local activities based on interests
+   * Generate AI-powered activity suggestions based on interests and location
    */
   static async findActivities(
     interests: string[],
     location: string
   ): Promise<ActivityOption[]> {
-    if (!interests || interests.length === 0) return [];
+    if (!interests || interests.length === 0) {
+      interests = ['sightseeing', 'culture', 'food'];
+    }
 
-    const questions = await prisma.question.findMany({
-      where: {
-        OR: interests.flatMap(interest => [
-          { title: { contains: interest, mode: 'insensitive' } },
-          { description: { contains: interest, mode: 'insensitive' } },
-          { tags: { has: interest } }
-        ])
-      },
-      select: { 
-        title: true, 
-        description: true, 
-        upvotes: true,
-        tags: true 
-      },
-      orderBy: { upvotes: 'desc' },
-      take: 10
-    });
+    try {
+      // Use AI to generate activity suggestions
+      const aiActivities = await AIPlannerAgent.generateActivitySuggestions(
+        location,
+        interests,
+        [], // No existing activities from DB
+        7 // Generate activities for up to 7 days
+      );
 
-    return questions.map(q => ({
-      title: q.title,
-      description: q.description,
-      upvotes: q.upvotes,
-      tags: q.tags,
-      source: 'local_knowledge' as const
-    }));
+      return aiActivities;
+    } catch (error) {
+      console.error('Error generating AI activities:', error);
+      // Fallback to basic activities if AI fails
+      return this.getFallbackActivities(location, interests);
+    }
+  }
+
+  /**
+   * Fallback activities if AI generation fails
+   */
+  private static getFallbackActivities(
+    location: string,
+    interests: string[]
+  ): ActivityOption[]  {
+    const fallbackActivities: ActivityOption[] = [];
+    
+    // Generic activities based on location
+    if (location.toLowerCase().includes('lahore')) {
+      fallbackActivities.push(
+        { title: 'Visit Badshahi Mosque', description: 'Explore the iconic Mughal-era mosque', upvotes: 0, tags: ['culture', 'history'], source: 'ai_suggestion' as const },
+        { title: 'Lahore Fort Tour', description: 'Discover the historical Lahore Fort', upvotes: 0, tags: ['history', 'sightseeing'], source: 'ai_suggestion' as const },
+        { title: 'Food Street Experience', description: 'Taste authentic Lahori cuisine', upvotes: 0, tags: ['food', 'culture'], source: 'ai_suggestion' as const }
+      );
+    } else if (location.toLowerCase().includes('islamabad')) {
+      fallbackActivities.push(
+        { title: 'Faisal Mosque Visit', description: 'See the largest mosque in Pakistan', upvotes: 0, tags: ['culture', 'sightseeing'], source: 'ai_suggestion' as const },
+        { title: 'Daman-e-Koh Viewpoint', description: 'Enjoy panoramic views of Islamabad', upvotes: 0, tags: ['nature', 'sightseeing'], source: 'ai_suggestion' as const },
+        { title: 'Lok Virsa Museum', description: 'Explore Pakistani cultural heritage', upvotes: 0, tags: ['culture', 'museums'], source: 'ai_suggestion' as const }
+      );
+    }
+
+    return fallbackActivities;
   }
 
   /**
