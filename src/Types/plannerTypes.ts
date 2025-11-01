@@ -49,6 +49,58 @@ export interface ActivityOption {
   source: 'local_knowledge' | 'ai_suggestion';
 }
 
+export interface LocationDetails {
+  name: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
+}
+
+export interface DayActivity {
+  time: string; // e.g., "09:00 AM"
+  duration: number; // minutes
+  type: 'breakfast' | 'lunch' | 'dinner' | 'attraction' | 'activity' | 'shopping' | 'rest' | 'travel';
+  title: string;
+  description: string;
+  location: LocationDetails;
+  estimatedCost: number; // PKR
+  tips?: string;
+  bookingRequired?: boolean;
+  mapUrl?: string;
+  // Google Places enrichment
+  placeDetails?: {
+    rating?: number;
+    userRatingsTotal?: number;
+    photos?: string[];
+    openingHours?: {
+      openNow?: boolean;
+      weekdayText?: string[];
+    };
+    website?: string;
+    phoneNumber?: string;
+    priceLevel?: number;
+    reviews?: {
+      author: string;
+      rating: number;
+      text: string;
+      time: string;
+    }[];
+  };
+}
+
+export interface DayItinerary {
+  day: number;
+  date: string; // "2025-12-01"
+  dayOfWeek: string; // "Monday"
+  theme?: string; // "Cultural Exploration", "Food Tour", etc.
+  activities: DayActivity[];
+  totalEstimatedCost: number;
+  totalDuration: number; // minutes
+  startTime: string;
+  endTime: string;
+}
+
 export interface TripOption {
   optionId: string;
   planName: string;
@@ -89,6 +141,19 @@ export interface TripPlan {
     numberOfTravelers: number;
   };
   
+  // Step 1: Transportation Options (user picks)
+  transportationOptions: {
+    outbound: TransportationOption[];
+    return: TransportationOption[];
+  };
+  
+  // Step 2: Accommodation Options (user picks)
+  accommodationOptions: AccommodationOption[];
+  
+  // Step 3: Day-by-Day Itinerary (auto-generated)
+  itinerary: DayItinerary[];
+  
+  // Legacy structure (for backward compatibility)
   availableOptions: {
     outboundTransportation: TransportationOption[];
     returnTransportation: TransportationOption[];
@@ -97,8 +162,22 @@ export interface TripPlan {
   };
   
   recommendedPlans: TripOption[];
-  
   optimalPlan: TripOption | null;
+  
+  // Summary
+  tripSummary: {
+    totalDays: number;
+    totalNights: number;
+    estimatedTotalCost: {
+      transportation: number;
+      accommodation: number;
+      activities: number;
+      meals: number;
+      total: number;
+    };
+    budgetStatus: 'within_budget' | 'over_budget' | 'close_to_budget';
+    remainingBudget: number;
+  };
 }
 
 export interface BookingConfirmationRequest {

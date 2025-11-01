@@ -6,9 +6,13 @@ import {
   ActivityOption,
   TripOption,
   TripPlan,
-  PlanGenerationRequest
+  PlanGenerationRequest,
+  DayItinerary,
+  DayActivity,
+  LocationDetails
 } from '../../Types/plannerTypes';
 import { AIPlannerAgent } from '../../services/aiPlannerAgent';
+import { GooglePlacesService } from '../../services/googlePlacesService';
 
 const prisma = new PrismaClient();
 
@@ -129,14 +133,25 @@ export class PlannerModel {
     numberOfTravelers: number,
     maxBudget: number
   ): Promise<AccommodationOption[]> {
-    const numberOfNights = Math.ceil(
-      (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
+    // Calculate number of nights based on calendar days, not hours
+    // From Nov 3 to Nov 6 is 3 nights (3-4, 4-5, 5-6)
+    const checkInDay = new Date(checkInDate);
+    checkInDay.setHours(0, 0, 0, 0);
+    const checkOutDay = new Date(checkOutDate);
+    checkOutDay.setHours(0, 0, 0, 0);
+    const numberOfNights = Math.round(
+      (checkOutDay.getTime() - checkInDay.getTime()) / (1000 * 60 * 60 * 24)
     );
+
+    // Extract city name - handle "Lahore City, Pakistan" -> "Lahore"
+    let cleanLocation = location.split(',')[0].trim();
+    // Remove "City" suffix if present
+    cleanLocation = cleanLocation.replace(/\s+City$/i, '').trim();
 
     const accommodations = await prisma.accommodation.findMany({
       where: {
         location: { 
-          contains: location,
+          contains: cleanLocation,
           mode: 'insensitive',
         }
       },
@@ -497,7 +512,13 @@ export class PlannerModel {
 
     const startDate = new Date(startTime);
     const endDate = new Date(endTime);
-    const numberOfNights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Calculate nights based on calendar days
+    const startDay = new Date(startDate);
+    startDay.setHours(0, 0, 0, 0);
+    const endDay = new Date(endDate);
+    endDay.setHours(0, 0, 0, 0);
+    const numberOfNights = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
 
     // Estimate budget allocation (flexible)
     const estimatedTransportCost = budget * 0.3;
@@ -600,7 +621,78 @@ export class PlannerModel {
       recommendedPlans[0].isOptimal = true;
     }
 
+    // Generate day-by-day itinerary
+    const itinerary = await this.generateDayByDayItinerary(
+      endLocation,
+      startDate,
+      endDate,
+      interests,
+      numberOfTravelers
+    );
+
+    // Calculate trip summary
+    const cheapestOutbound = outboundTransportation.length > 0 
+      ? outboundTransportation.reduce((min, t) => t.pricePerSeat < min.pricePerSeat ? t : min)
+      : null;
+    const cheapestReturn = returnTransportation.length > 0
+      ? returnTransportation.reduce((min, t) => t.pricePerSeat < min.pricePerSeat ? t : min)
+      : null;
+    const cheapestAccommodation = accommodations.length > 0
+      ? accommodations.reduce((min, a) => a.totalCost < min.totalCost ? a : min)
+      : null;
+
+    const totalActivitiesCost = itinerary.reduce((sum, day) => sum + day.totalEstimatedCost, 0);
+    
+    // Separate meals cost from activities
+    const totalMealsCost = itinerary.reduce((sum, day) => {
+      return sum + day.activities
+        .filter(act => act.type === 'breakfast' || act.type === 'lunch' || act.type === 'dinner')
+        .reduce((mealSum, act) => mealSum + act.estimatedCost, 0);
+    }, 0);
+    
+    const totalNonMealActivitiesCost = totalActivitiesCost - totalMealsCost;
+    
+    const transportationCost = ((cheapestOutbound?.pricePerSeat || 0) + (cheapestReturn?.pricePerSeat || 0)) * numberOfTravelers;
+    const accommodationCost = cheapestAccommodation?.totalCost || 0;
+    
+    const totalEstimatedCost = transportationCost + accommodationCost + totalActivitiesCost;
+
+    const remainingBudget = budget - totalEstimatedCost;
+    const budgetUsagePercent = budget > 0 ? (totalEstimatedCost / budget) * 100 : 0;
+    
+    let budgetStatus: 'within_budget' | 'over_budget' | 'close_to_budget';
+    if (totalEstimatedCost > budget) {
+      budgetStatus = 'over_budget';
+    } else if (budgetUsagePercent > 85) {
+      budgetStatus = 'close_to_budget';
+    } else {
+      budgetStatus = 'within_budget';
+    }
+
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalNights = totalDays - 1;
+
     return {
+      transportationOptions: {
+        outbound: outboundTransportation,
+        return: returnTransportation
+      },
+      accommodationOptions: accommodations,
+      itinerary,
+      tripSummary: {
+        totalDays,
+        totalNights,
+        estimatedTotalCost: {
+          transportation: transportationCost,
+          accommodation: accommodationCost,
+          activities: totalNonMealActivitiesCost,
+          meals: totalMealsCost,
+          total: totalEstimatedCost
+        },
+        budgetStatus,
+        remainingBudget
+      },
+      // Keep backward compatibility
       requestSummary: {
         startLocation,
         endLocation,
@@ -645,5 +737,308 @@ export class PlannerModel {
     }
 
     return description.trim();
+  }
+
+  /**
+   * Generate day-by-day itinerary with activities
+   */
+  private static async generateDayByDayItinerary(
+    destination: string,
+    startDate: Date,
+    endDate: Date,
+    interests: string[],
+    numberOfTravelers: number
+  ): Promise<DayItinerary[]> {
+    const itinerary: DayItinerary[] = [];
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Clean destination - "Lahore City, Pakistan" -> "lahore"
+    const cleanDest = destination.split(',')[0].trim().replace(/\s+City$/i, '').trim().toLowerCase();
+
+    // Helper function to get rich description for a location
+    const getLocationDescription = (locationName: string): string => {
+      const descriptions: Record<string, string> = {
+        'Badshahi Mosque': 'A magnificent Mughal-era mosque built in 1671, featuring stunning red sandstone architecture, intricate marble inlay work, and massive courtyard. One of the largest mosques in Pakistan and a UNESCO World Heritage Site.',
+        'Lahore Fort': 'A spectacular royal fort with 21 monuments built over 1000 years. Features the famous Sheesh Mahal (Palace of Mirrors), beautiful gardens, and stunning Mughal architecture. UNESCO World Heritage Site.',
+        'Food Street Gawalmandi': 'Historic food street famous for authentic Lahori cuisine including nihari, paya, haleem, and various kebabs. Atmospheric dining with views of historic buildings.',
+        'Shalimar Gardens': 'Breathtaking Mughal garden complex built in 1642 with terraced levels, over 400 fountains, marble pavilions, and stunning landscaping. A masterpiece of hydraulic engineering.',
+        'Lahore Museum': 'One of Pakistan\'s oldest and largest museums featuring Gandhara art, Mughal artifacts, ancient manuscripts, and the famous fasting Buddha statue. Rich collection spanning 5000 years.',
+        'Minar-e-Pakistan': 'National monument commemorating Pakistan\'s independence, standing 62 meters tall. Features marble and red sandstone construction with panoramic city views from the top.',
+        'Anarkali Bazaar': 'One of the oldest surviving markets in South Asia dating back 200 years. Famous for traditional clothing, jewelry, handicrafts, spices, and vibrant local culture.',
+        'Liberty Market': 'Modern upscale shopping area with branded stores, boutiques, cafes, and restaurants. Popular for contemporary fashion, accessories, and international brands.',
+        'Faisal Mosque': 'Iconic modern mosque designed like a Bedouin tent, one of the largest in the world. Features striking white marble architecture against Margalla Hills backdrop.',
+        'Pakistan Monument': 'National monument representing Pakistan\'s four provinces and three territories. Features museum, 360-degree views, and beautiful gardens.',
+        'Daman-e-Koh': 'Scenic viewpoint in Margalla Hills offering panoramic views of Islamabad city. Popular picnic spot with restaurant and walking trails.',
+        'Lok Virsa Museum': 'National institute showcasing Pakistani folk heritage, traditional crafts, and cultural artifacts from all regions.',
+        'Centaurus Mall': 'Premier shopping and entertainment complex with international brands, food court, cinema, and restaurants.',
+        'Margalla Hills Trail': 'Popular hiking trail with moderate difficulty, offering stunning views, diverse wildlife, and fresh mountain air.',
+      };
+      return descriptions[locationName] || 'A popular destination worth visiting in the area.';
+    };
+
+    // Location data for Lahore and Islamabad
+    const locationDatabase: Record<string, LocationDetails[]> = {
+      'lahore': [
+        { name: 'Badshahi Mosque', address: 'Walled City, Lahore', latitude: 31.5881, longitude: 74.3099, googleMapsUrl: 'https://maps.google.com/?q=Badshahi+Mosque+Lahore' },
+        { name: 'Lahore Fort', address: 'Fort Road, Lahore', latitude: 31.5882, longitude: 74.3154, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Fort' },
+        { name: 'Food Street Gawalmandi', address: 'Gawalmandi, Lahore', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Food+Street+Gawalmandi' },
+        { name: 'Shalimar Gardens', address: 'GT Road, Lahore', latitude: 31.5870, longitude: 74.3836, googleMapsUrl: 'https://maps.google.com/?q=Shalimar+Gardens+Lahore' },
+        { name: 'Lahore Museum', address: 'Mall Road, Lahore', latitude: 31.5688, longitude: 74.3085, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Museum' },
+        { name: 'Minar-e-Pakistan', address: 'Iqbal Park, Lahore', latitude: 31.5925, longitude: 74.3095, googleMapsUrl: 'https://maps.google.com/?q=Minar-e-Pakistan' },
+        { name: 'Anarkali Bazaar', address: 'Anarkali, Lahore', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Anarkali+Bazaar' },
+        { name: 'Liberty Market', address: 'Gulberg, Lahore', latitude: 31.5086, longitude: 74.3499, googleMapsUrl: 'https://maps.google.com/?q=Liberty+Market+Lahore' },
+      ],
+      'islamabad': [
+        { name: 'Faisal Mosque', address: 'Shah Faisal Avenue, Islamabad', latitude: 33.7297, longitude: 73.0372, googleMapsUrl: 'https://maps.google.com/?q=Faisal+Mosque' },
+        { name: 'Pakistan Monument', address: 'Shakarparian, Islamabad', latitude: 33.6932, longitude: 73.0683, googleMapsUrl: 'https://maps.google.com/?q=Pakistan+Monument' },
+        { name: 'Daman-e-Koh', address: 'Margalla Hills, Islamabad', latitude: 33.7366, longitude: 73.0663, googleMapsUrl: 'https://maps.google.com/?q=Daman-e-Koh' },
+        { name: 'Lok Virsa Museum', address: 'Garden Avenue, Islamabad', latitude: 33.6841, longitude: 73.0735, googleMapsUrl: 'https://maps.google.com/?q=Lok+Virsa+Museum' },
+        { name: 'Centaurus Mall', address: 'Jinnah Avenue, Islamabad', latitude: 33.7102, longitude: 73.0565, googleMapsUrl: 'https://maps.google.com/?q=Centaurus+Mall' },
+        { name: 'Margalla Hills Trail', address: 'Trail 3, Islamabad', latitude: 33.7442, longitude: 73.0581, googleMapsUrl: 'https://maps.google.com/?q=Margalla+Hills+Trail+3' },
+      ]
+    };
+
+    const destinationKey = cleanDest;
+    const locations = locationDatabase[destinationKey] || [];
+
+    for (let day = 0; day < totalDays; day++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(currentDate.getDate() + day);
+      
+      const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const dateString = currentDate.toISOString().split('T')[0];
+
+      const activities: DayActivity[] = [];
+      let currentTime = '09:00 AM';
+
+      // First day - Arrival
+      if (day === 0) {
+        activities.push({
+          time: '12:00 PM',
+          duration: 60,
+          type: 'rest',
+          title: 'Check-in & Rest',
+          description: 'Arrive at hotel, check-in, and freshen up',
+          location: { name: 'Hotel', address: destination },
+          estimatedCost: 0,
+          tips: 'Keep your ID and booking confirmation ready'
+        });
+        
+        activities.push({
+          time: '02:00 PM',
+          duration: 90,
+          type: 'lunch',
+          title: 'Welcome Lunch',
+          description: locations[0] ? getLocationDescription(locations[0].name) : 'Try local cuisine at a popular restaurant',
+          location: locations[0] || { name: 'Local Restaurant', address: destination },
+          estimatedCost: 1500 * numberOfTravelers,
+          tips: 'Try the local specialties!'
+        });
+
+        activities.push({
+          time: '04:00 PM',
+          duration: 120,
+          type: 'attraction',
+          title: 'City Orientation Walk',
+          description: locations[1] ? getLocationDescription(locations[1].name) : 'Light evening walk to explore nearby area',
+          location: locations[1] || { name: 'City Center', address: destination },
+          estimatedCost: 500 * numberOfTravelers,
+          tips: 'Great time for photos in evening light'
+        });
+
+      } else if (day === totalDays - 1) {
+        // Last day - Departure
+        activities.push({
+          time: '08:00 AM',
+          duration: 60,
+          type: 'breakfast',
+          title: 'Farewell Breakfast',
+          description: 'Breakfast at hotel',
+          location: { name: 'Hotel Restaurant', address: destination },
+          estimatedCost: 800 * numberOfTravelers
+        });
+
+        activities.push({
+          time: '10:00 AM',
+          duration: 90,
+          type: 'shopping',
+          title: 'Last-minute Shopping',
+          description: 'Pick up souvenirs and local products',
+          location: locations[locations.length - 1] || { name: 'Shopping Area', address: destination },
+          estimatedCost: 2000 * numberOfTravelers,
+          tips: 'Bargaining is common in local markets'
+        });
+
+        activities.push({
+          time: '12:00 PM',
+          duration: 30,
+          type: 'rest',
+          title: 'Check-out',
+          description: 'Hotel check-out and prepare for departure',
+          location: { name: 'Hotel', address: destination },
+          estimatedCost: 0
+        });
+
+      } else {
+        // Regular days
+        activities.push({
+          time: '08:00 AM',
+          duration: 60,
+          type: 'breakfast',
+          title: 'Breakfast',
+          description: 'Start your day with a hearty breakfast',
+          location: { name: 'Hotel Restaurant', address: destination },
+          estimatedCost: 800 * numberOfTravelers
+        });
+
+        // Morning activity
+        const morningLoc = locations[(day * 2) % locations.length];
+        activities.push({
+          time: '10:00 AM',
+          duration: 150,
+          type: 'attraction',
+          title: `Visit ${morningLoc?.name || 'Local Attraction'}`,
+          description: (morningLoc && morningLoc.name) ? getLocationDescription(morningLoc.name) : `Explore the ${morningLoc?.name || 'attraction'} and learn about its history`,
+          location: morningLoc || { name: 'Attraction', address: destination },
+          estimatedCost: 500 * numberOfTravelers,
+          bookingRequired: false,
+          mapUrl: morningLoc?.googleMapsUrl
+        });
+
+        activities.push({
+          time: '01:00 PM',
+          duration: 90,
+          type: 'lunch',
+          title: 'Lunch',
+          description: 'Enjoy traditional local cuisine with authentic flavors and regional specialties',
+          location: locations[(day * 2 + 1) % locations.length] || { name: 'Restaurant', address: destination },
+          estimatedCost: 2000 * numberOfTravelers,
+          tips: 'Try the chef\'s special!'
+        });
+
+        // Afternoon activity
+        const afternoonLoc = locations[(day * 2 + 2) % locations.length];
+        activities.push({
+          time: '03:00 PM',
+          duration: 180,
+          type: interests.includes('shopping') ? 'shopping' : 'activity',
+          title: `${afternoonLoc?.name || 'Afternoon Activity'}`,
+          description: (afternoonLoc && afternoonLoc.name) ? getLocationDescription(afternoonLoc.name) : `Experience ${afternoonLoc?.name || 'the local culture'}`,
+          location: afternoonLoc || { name: 'Activity Location', address: destination },
+          estimatedCost: 1500 * numberOfTravelers,
+          mapUrl: afternoonLoc?.googleMapsUrl
+        });
+
+        activities.push({
+          time: '07:00 PM',
+          duration: 120,
+          type: 'dinner',
+          title: 'Dinner',
+          description: 'Dinner at a recommended restaurant featuring local and international cuisine',
+          location: locations[(day * 2 + 3) % locations.length] || { name: 'Dinner Spot', address: destination },
+          estimatedCost: 2500 * numberOfTravelers,
+          tips: 'Reservations recommended for popular spots'
+        });
+      }
+
+      const totalCost = activities.reduce((sum, act) => sum + act.estimatedCost, 0);
+      const totalDuration = activities.reduce((sum, act) => sum + act.duration, 0);
+
+      itinerary.push({
+        day: day + 1,
+        date: dateString,
+        dayOfWeek,
+        theme: day === 0 ? 'Arrival & Orientation' : 
+               day === totalDays - 1 ? 'Departure Day' : 
+               `Day ${day + 1} - Exploration`,
+        activities,
+        totalEstimatedCost: totalCost,
+        totalDuration: totalDuration,
+        startTime: activities[0]?.time || '09:00 AM',
+        endTime: activities[activities.length - 1]?.time || '09:00 PM'
+      });
+    }
+
+    // Enrich activities with Google Places data
+    await this.enrichActivitiesWithPlacesData(itinerary, cleanDest);
+
+    return itinerary;
+  }
+
+  /**
+   * Enrich activities with real Google Places data
+   */
+  private static async enrichActivitiesWithPlacesData(
+    itinerary: DayItinerary[],
+    destination: string
+  ): Promise<void> {
+    console.log('🌍 Enriching major attractions with Google Places data...');
+    
+    let apiCallsCount = 0;
+    const maxApiCalls = 5; // Limit to 5 API calls per trip to minimize costs
+    
+    for (const day of itinerary) {
+      for (const activity of day.activities) {
+        // COST OPTIMIZATION: Only enrich major attractions, skip meals, rest, and travel
+        const shouldEnrich = 
+          activity.type === 'attraction' || 
+          activity.type === 'activity' || 
+          activity.type === 'shopping';
+        
+        if (!shouldEnrich || !activity.location.name || activity.location.name === 'Hotel') {
+          console.log(`  ⊘ Skipped (using AI description): ${activity.location.name}`);
+          continue;
+        }
+
+        // Stop enriching if we've hit the API call limit
+        if (apiCallsCount >= maxApiCalls) {
+          console.log(`  ⊘ Skipped (API limit reached): ${activity.location.name}`);
+          continue;
+        }
+
+        try {
+          // Fetch place details from Google Places API (only for major attractions)
+          const placeDetails = await GooglePlacesService.findPlaceDetails(
+            activity.location.name,
+            activity.location.address || destination
+          );
+
+          if (placeDetails) {
+            apiCallsCount++;
+            
+            // Enrich activity with Google Places data
+            activity.placeDetails = {
+              rating: placeDetails.rating,
+              userRatingsTotal: placeDetails.userRatingsTotal,
+              photos: placeDetails.photos,
+              openingHours: placeDetails.openingHours,
+              website: placeDetails.website,
+              phoneNumber: placeDetails.phoneNumber,
+              priceLevel: placeDetails.priceLevel,
+              reviews: placeDetails.reviews
+            };
+
+            // Update description if Google has a better one
+            if (placeDetails.description && placeDetails.description.length > activity.description.length) {
+              activity.description = placeDetails.description;
+            }
+
+            // Update address if we got a more complete one
+            if (placeDetails.address) {
+              activity.location.address = placeDetails.address;
+            }
+
+            console.log(`  ✓ Enriched: ${activity.location.name} (Rating: ${placeDetails.rating || 'N/A'}) [${apiCallsCount}/${maxApiCalls}]`);
+          }
+        } catch (error) {
+          console.error(`  ✗ Failed to enrich ${activity.location.name}:`, error);
+        }
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`✅ Activity enrichment complete! API calls used: ${apiCallsCount}/${maxApiCalls}`);
   }
 }

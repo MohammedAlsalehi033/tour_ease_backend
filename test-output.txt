@@ -1,0 +1,183 @@
+🧪 Testing Itinerary Planner...
+
+📋 Request Details:
+  From: Islamabad, Pakistan
+  To: Lahore City, Pakistan
+  Dates: 2025-11-03 to 2025-11-06
+  Budget: 150,000 PKR
+  Travelers: 2
+  Interests: culture, food, shopping
+
+✅ TRIP PLAN GENERATED
+
+================================================================================
+
+🚌 TRANSPORTATION OPTIONS
+
+Outbound (Islamabad → Lahore):
+  1. bilal_travels_4 - Coaster
+     Departure: 11/3/2025, 9:00:00 AM
+     Price: 3,152 PKR/seat
+     Total: 6,304 PKR
+     Rating: N/A ⭐
+
+  2. mohammed - car
+     Departure: 11/3/2025, 9:00:00 AM
+     Price: 5,729 PKR/seat
+     Total: 11,458 PKR
+     Rating: N/A ⭐
+
+  3. alsalhe034@gmail.com - car
+     Departure: 11/3/2025, 12:00:00 PM
+     Price: 2,513 PKR/seat
+     Total: 5,026 PKR
+     Rating: N/A ⭐
+
+  4. khan_transport_5 - Bus
+     Departure: 11/3/2025, 12:00:00 PM
+     Price: 3,647 PKR/seat
+     Total: 7,294 PKR
+     Rating: N/A ⭐
+
+  5. faisal_movers_1 - SUV
+     Departure: 11/3/2025, 3:00:00 PM
+     Price: 1,963 PKR/seat
+     Total: 3,926 PKR
+     Rating: N/A ⭐
+
+  6. metro_shuttle_6 - Sedan
+     Departure: 11/3/2025, 3:00:00 PM
+     Price: 2,699 PKR/seat
+     Total: 5,398 PKR
+     Rating: N/A ⭐
+
+  7. rider123@gmail.com - car
+     Departure: 11/3/2025, 3:00:00 PM
+     Price: 3,536 PKR/seat
+     Total: 7,072 PKR
+     Rating: N/A ⭐
+
+
+Return (Lahore → Islamabad):
+  1. mohammed - car
+     Departure: 11/6/2025, 6:00:00 PM
+     Price: 2,262 PKR/seat
+     Total: 4,524 PKR
+     Rating: N/A ⭐
+
+  2. ramy@gmail.com - car
+     Departure: 11/6/2025, 6:00:00 PM
+     Price: 2,607 PKR/seat
+     Total: 5,214 PKR
+     Rating: N/A ⭐
+
+  3. rizwan - car
+     Departure: 11/6/2025, 6:00:00 PM
+     Price: 5,061 PKR/seat
+     Total: 10,122 PKR
+     Rating: N/A ⭐
+
+  4. alsalhe034@gmail.com - car
+     Departure: 11/6/2025, 9:00:00 PM
+     Price: 3,779 PKR/seat
+     Total: 7,558 PKR
+     Rating: N/A ⭐
+
+  5. alsalhe05@gmail.com - the good type
+     Departure: 11/6/2025, 9:00:00 PM
+     Price: 4,356 PKR/seat
+     Total: 8,712 PKR
+     Rating: N/A ⭐
+
+  6. mohammed - car
+     Departure: 11/7/2025, 6:00:00 AM
+     Price: 3,963 PKR/seat
+     Total: 7,926 PKR
+     Rating: N/A ⭐
+
+  7. rizwan - car
+     Departure: 11/7/2025, 6:00:00 AM
+     Price: 5,255 PKR/seat
+     Total: 10,510 PKR
+     Rating: N/A ⭐
+
+  8. Aqeel Shah - car
+     Departure: 11/7/2025, 9:00:00 AM
+     Price: 2,183 PKR/seat
+     Total: 4,366 PKR
+     Rating: N/A ⭐
+
+  9. ramy@gmail.com - car
+     Departure: 11/7/2025, 9:00:00 AM
+     Price: 3,206 PKR/seat
+     Total: 6,412 PKR
+     Rating: N/A ⭐
+
+  10. daewoo_express_0 - Sedan
+     Departure: 11/7/2025, 12:00:00 PM
+     Price: 2,969 PKR/seat
+     Total: 5,938 PKR
+     Rating: N/A ⭐
+
+  11. alsalhe05@gmail.com - the good type
+     Departure: 11/7/2025, 12:00:00 PM
+     Price: 5,018 PKR/seat
+     Total: 10,036 PKR
+     Rating: N/A ⭐
+
+  12. rider123@gmail.com - car
+     Departure: 11/7/2025, 3:00:00 PM
+     Price: 2,876 PKR/seat
+     Total: 5,752 PKR
+     Rating: N/A ⭐
+
+  13. wajahatalipk5@gmail.com - SUV
+     Departure: 11/7/2025, 3:00:00 PM
+     Price: 4,280 PKR/seat
+     Total: 8,560 PKR
+     Rating: N/A ⭐
+
+  14. mohammed - car
+     Departure: 11/7/2025, 6:00:00 PM
+     Price: 1,944 PKR/seat
+     Total: 3,888 PKR
+     Rating: N/A ⭐
+
+  15. royal_coaches_7 - SUV
+     Departure: 11/7/2025, 6:00:00 PM
+     Price: 2,796 PKR/seat
+     Total: 5,592 PKR
+     Rating: N/A ⭐
+
+  16. wajahatalipk5@gmail.com - SUV
+     Departure: 11/7/2025, 6:00:00 PM
+     Price: 5,701 PKR/seat
+     Total: 11,402 PKR
+     Rating: N/A ⭐
+
+
+🏨 ACCOMMODATION OPTIONS
+
+
+📅 DAY-BY-DAY ITINERARY
+
+
+💰 TRIP SUMMARY
+
+Total Duration: 4 days, 3 nights
+
+Estimated Costs:
+  Transportation: 7,814 PKR
+  Accommodation:  0 PKR
+  Activities:     0 PKR
+  Meals:          0 PKR
+  ───────────────────────────────
+  TOTAL:          7,814 PKR
+
+Budget: 150,000 PKR
+Remaining: 142,186 PKR
+Status: WITHIN_BUDGET
+Budget Usage: 5.2%
+
+================================================================================
+✨ Test Complete!

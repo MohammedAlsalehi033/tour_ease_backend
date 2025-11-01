@@ -195,7 +195,7 @@ RESPOND WITH VALID JSON ONLY (no markdown, no explanations outside JSON):
     request: PlanGenerationRequest,
     allPlans: any[]
   ): Promise<AIPlanEnhancement> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const enhancementPrompt = `
 You are a travel expert providing insights on a trip plan.
@@ -262,7 +262,7 @@ Keep it concise and actionable. Focus on practical insights.
     existingActivities: ActivityOption[],
     numberOfDays: number
   ): Promise<ActivityOption[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const activityPrompt = `
 You are a local travel expert for ${location}.
@@ -326,7 +326,7 @@ Make suggestions specific to ${location} and the user's interests. Don't repeat 
     explanation: string;
     suggestedChanges: string[];
   }> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const conversationPrompt = `
 You are a helpful travel planning assistant having a conversation with a user.
