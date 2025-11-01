@@ -55,7 +55,7 @@ export class AIPlannerAgent {
     currentResults: TripPlan,
     iterationNumber: number
   ): Promise<IterationAnalysis> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
     const analysisPrompt = `
 You are a travel planning expert analyzing search results to help improve them.
