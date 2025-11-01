@@ -245,7 +245,7 @@ export const refinePlan = async (req: Request, res: Response) => {
 };
 
 /**
- * Confirm and book a selected trip plan
+ * Confirm and book a selefcted trip plan
  */
 export const confirmBooking = async (req: Request, res: Response) => {
   try {
