@@ -27,17 +27,22 @@ const upload = multer({
 
 
 // Public routes
+// Exact match routes first (no parameters)
 router.post('/createUser', userController.createUser.bind(userController));
 router.get('/getRole', userController.getRole.bind(userController));
 router.post('/updateUserRole', userController.updateRole.bind(userController));
-router.post('/FCMToken/:id', userController.addFCMTokenToUser.bind(userController));
+router.get("/getAllUsers", adminMiddleware(["Manage Users"  ]) ,userController.getAllUsers.bind(userController));
 router.get('/getUserById', userController.getUserById.bind(userController));
-router.get("/getAllUsers", adminMiddleware(["Manage Users"  ]) ,userController.getAllUsers.bind(userController))
+
+// Routes with parameters
+router.post('/FCMToken/:id', userController.addFCMTokenToUser.bind(userController));
+// NEW ROUTE: Get accommodation ID for user - moved before generic :id route
+router.get('/accommodation-id/:id', userController.getAccommodationIdByUserId.bind(userController));
 router.post(
     '/profile-picture/:id?', 
     upload.single('profilePicture'), 
     userController.updateProfilePicture.bind(userController)
-  );
+);
 
 // router.get('/questions/:id', questionController.getQuestionById);
 // router.get('/questions/search', questionController.searchQuestions);

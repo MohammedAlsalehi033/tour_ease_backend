@@ -17,6 +17,11 @@ const AIPlannerRoute = require('./routes/planner/plannerRouter');
 const reportRoutes = require('./routes/report/reportRoutes');
 const reviewRoutes = require('./routes/review/reviewRoutes');
 const superAdmin = require("./routes/admin/superAdmin/superAdmin");
+const accommodationProviderRoutes = require('./routes/accommodationProvider/accommodationProviderRoutes');
+const accommodationRoutes = require('./routes/accommodation/accommodationRoutes');
+const roomRoutes = require('./routes/room/roomRoutes');
+const accommodationBookingRoutes = require('./routes/accommodationBooking/accommodationBookingRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 
 const { createChatRouter } = require("./routes/chat/chatRouter");
@@ -89,6 +94,9 @@ io.on('connection', (socket) => {
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api', authRoutes);
 app.use('/api', questionRoutes);
@@ -102,6 +110,11 @@ app.use('/api', transportationBookingRouter);
 app.use('/api', AIPlannerRoute);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/accommodation-providers', accommodationProviderRoutes);
+app.use('/api/accommodations', accommodationRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/accommodation-bookings', accommodationBookingRoutes);
+app.use('/api', uploadRoutes); // Upload endpoint for S3
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
 

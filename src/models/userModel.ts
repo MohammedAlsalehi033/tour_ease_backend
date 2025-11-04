@@ -348,4 +348,74 @@ async getAllUsers(
       throw error;
     }
   }
+
+  /**
+   * Get accommodation ID for a user (accommodation provider)
+   * @param userId - The user ID of the accommodation provider
+   * @returns Object with accommodation ID and details
+   */
+  async getAccommodationIdByUserId(userId: string): Promise<{
+    success: boolean;
+    accommodationId?: number;
+    accommodation?: {
+      id: number;
+      name: string;
+      providerId: string;
+      location: string;
+    };
+    message?: string;
+  }> {
+    try {
+      // First, check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      // Get the accommodation provider info for this user
+      const accommodationProvider = await prisma.accommodationProvider.findUnique({
+        where: { providerId: userId },
+      });
+
+      if (!accommodationProvider) {
+        return {
+          success: false,
+          message: 'User is not an accommodation provider',
+        };
+      }
+
+      // Get the first accommodation for this provider
+      const accommodation = await prisma.accommodation.findFirst({
+        where: { providerId: userId },
+        select: {
+          id: true,
+          name: true,
+          providerId: true,
+          location: true,
+        },
+      });
+
+      if (!accommodation) {
+        return {
+          success: false,
+          message: 'No accommodation found for this provider',
+        };
+      }
+
+      return {
+        success: true,
+        accommodationId: accommodation.id,
+        accommodation: accommodation,
+      };
+    } catch (error) {
+      console.error('Error getting accommodation ID by user ID:', error);
+      throw error;
+    }
+  }
 }

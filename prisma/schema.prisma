@@ -33,6 +33,7 @@ model User {
   Report_Report_reportedUserIdToUser Report[]                @relation("Report_reportedUserIdToUser")
   Report_Report_reporterIdToUser     Report[]                @relation("Report_reporterIdToUser")
   reviews                            Review[]                @relation("ReviewerRelation")
+  SavedTripPlan                      SavedTripPlan[]
   transportationBookings             TransportationBooking[]
   transportationProvider             TransportationProvider?
   TransportationRequest              TransportationRequest[]
@@ -113,26 +114,28 @@ model TransportationRequest {
 }
 
 model TransportationListing {
-  id                Int                     @id @default(autoincrement())
-  providerId        String
-  departureTime     DateTime
-  pricePerSeat      Decimal                 @db.Decimal(10, 2)
-  seatsAvailable    Int
-  status            String                  @default("active")
-  mediaUrls         String[]
-  createdAt         DateTime                @default(now())
-  endLocationLat    Float?
-  endLocationLng    Float?
-  endLocationText   String
-  startLocationLat  Float?
-  startLocationLng  Float?
-  startLocationText String
-  luggage           Int                     @default(0)
-  offers            Offer[]
-  Report            Report[]
-  reviews           Review[]                @relation("TransportationListingReviews")
-  bookings          TransportationBooking[]
-  provider          TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  id                                                                             Int                     @id @default(autoincrement())
+  providerId                                                                     String
+  departureTime                                                                  DateTime
+  pricePerSeat                                                                   Decimal                 @db.Decimal(10, 2)
+  seatsAvailable                                                                 Int
+  status                                                                         String                  @default("active")
+  mediaUrls                                                                      String[]
+  createdAt                                                                      DateTime                @default(now())
+  endLocationLat                                                                 Float?
+  endLocationLng                                                                 Float?
+  endLocationText                                                                String
+  startLocationLat                                                               Float?
+  startLocationLng                                                               Float?
+  startLocationText                                                              String
+  luggage                                                                        Int                     @default(0)
+  offers                                                                         Offer[]
+  Report                                                                         Report[]
+  reviews                                                                        Review[]                @relation("TransportationListingReviews")
+  SavedTripPlan_SavedTripPlan_selectedOutboundTransportIdToTransportationListing SavedTripPlan[]         @relation("SavedTripPlan_selectedOutboundTransportIdToTransportationListing")
+  SavedTripPlan_SavedTripPlan_selectedReturnTransportIdToTransportationListing   SavedTripPlan[]         @relation("SavedTripPlan_selectedReturnTransportIdToTransportationListing")
+  bookings                                                                       TransportationBooking[]
+  provider                                                                       TransportationProvider  @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
 
   @@index([providerId])
   @@index([startLocationText, endLocationText])
@@ -193,17 +196,18 @@ model Offer {
 }
 
 model Accommodation {
-  id          Int                   @id @default(autoincrement())
-  providerId  String
-  name        String
-  location    String
-  description String
-  mediaUrls   String[]
-  createdAt   DateTime              @default(now())
-  provider    AccommodationProvider @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
-  Report      Report[]
-  reviews     Review[]              @relation("AccommodationReviews")
-  rooms       Room[]
+  id            Int                   @id @default(autoincrement())
+  providerId    String
+  name          String
+  location      String
+  description   String
+  mediaUrls     String[]
+  createdAt     DateTime              @default(now())
+  provider      AccommodationProvider @relation(fields: [providerId], references: [providerId], onDelete: Cascade)
+  Report        Report[]
+  reviews       Review[]              @relation("AccommodationReviews")
+  rooms         Room[]
+  SavedTripPlan SavedTripPlan[]
 
   @@index([providerId])
   @@index([location])
@@ -211,17 +215,18 @@ model Accommodation {
 }
 
 model Room {
-  id              Int                    @id @default(autoincrement())
-  accommodationId Int
-  roomType        String
-  pricePerNight   Decimal                @db.Decimal(10, 2)
-  capacity        Int
-  mediaUrls       String[]
-  createdAt       DateTime               @default(now())
-  bookings        AccommodationBooking[]
-  Report          Report[]
-  reviews         Review[]               @relation("RoomReviews")
-  accommodation   Accommodation          @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  id                      Int                       @id @default(autoincrement())
+  accommodationId         Int
+  roomType                String
+  pricePerNight           Decimal                   @db.Decimal(10, 2)
+  capacity                Int
+  mediaUrls               String[]
+  createdAt               DateTime                  @default(now())
+  bookings                AccommodationBooking[]
+  Report                  Report[]
+  reviews                 Review[]                  @relation("RoomReviews")
+  accommodation           Accommodation             @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  SavedPlanRoomAllocation SavedPlanRoomAllocation[]
 
   @@index([accommodationId])
   @@index([roomType])
@@ -470,6 +475,57 @@ model Report {
   @@index([status])
   @@index([transportationBookingId])
   @@index([transportationListingId])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model SavedPlanRoomAllocation {
+  id            Int           @id @default(autoincrement())
+  savedPlanId   Int
+  roomId        Int
+  numberOfRooms Int           @default(1)
+  checkInDate   DateTime
+  checkOutDate  DateTime
+  Room          Room          @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  SavedTripPlan SavedTripPlan @relation(fields: [savedPlanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([savedPlanId])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model SavedTripPlan {
+  id                                                                                     Int                       @id @default(autoincrement())
+  userId                                                                                 String
+  planName                                                                               String
+  status                                                                                 String                    @default("draft")
+  startLocation                                                                          String
+  endLocation                                                                            String
+  startTime                                                                              DateTime
+  endTime                                                                                DateTime
+  numberOfTravelers                                                                      Int
+  budget                                                                                 Decimal                   @db.Decimal(10, 2)
+  interests                                                                              String[]
+  needsReturnTransport                                                                   Boolean                   @default(true)
+  selectedOutboundTransportId                                                            Int?
+  selectedReturnTransportId                                                              Int?
+  selectedAccommodationId                                                                Int?
+  seatsNeeded                                                                            Int?
+  planData                                                                               Json?
+  notes                                                                                  String?
+  tags                                                                                   String[]
+  createdAt                                                                              DateTime                  @default(now())
+  updatedAt                                                                              DateTime                  @default(now())
+  lastViewedAt                                                                           DateTime?
+  SavedPlanRoomAllocation                                                                SavedPlanRoomAllocation[]
+  Accommodation                                                                          Accommodation?            @relation(fields: [selectedAccommodationId], references: [id], onUpdate: NoAction)
+  TransportationListing_SavedTripPlan_selectedOutboundTransportIdToTransportationListing TransportationListing?    @relation("SavedTripPlan_selectedOutboundTransportIdToTransportationListing", fields: [selectedOutboundTransportId], references: [id], onUpdate: NoAction)
+  TransportationListing_SavedTripPlan_selectedReturnTransportIdToTransportationListing   TransportationListing?    @relation("SavedTripPlan_selectedReturnTransportIdToTransportationListing", fields: [selectedReturnTransportId], references: [id], onUpdate: NoAction)
+  User                                                                                   User                      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([createdAt])
+  @@index([startTime])
+  @@index([status])
+  @@index([tags], type: Gin)
+  @@index([userId])
 }
 
 enum VoteType {

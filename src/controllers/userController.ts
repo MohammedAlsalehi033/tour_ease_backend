@@ -199,4 +199,31 @@ export default class UserController {
             });
         }
     }
+
+    async getAccommodationIdByUserId(req, res) {
+        try {
+            const { id } = req.params;
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'User ID is required',
+                });
+            }
+
+            const result = await this.model.getAccommodationIdByUserId(id);
+
+            if (!result.success) {
+                return res.status(404).json(result);
+            }
+
+            res.json(result);
+        } catch (error : any) {
+            console.error('Error getting accommodation ID:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to get accommodation ID',
+            });
+        }
+    }
 }
