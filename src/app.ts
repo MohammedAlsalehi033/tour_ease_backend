@@ -48,8 +48,6 @@ const io = new SocketIOServer(server, {
 
 
 
-
-
 const connectedUsers = new Map();
 io.on('connection', (socket) => {
   console.log('New socket connection:', socket.id);
@@ -97,7 +95,7 @@ app.use(express.json());
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
 
-// Routes
+// Routes - All routes use /api as base
 app.use('/api', authRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', commentRoutes);
@@ -108,19 +106,16 @@ app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
 app.use('/api', AIPlannerRoute);
-app.use('/api/reports', reportRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/accommodation-providers', accommodationProviderRoutes);
-app.use('/api/accommodations', accommodationRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/accommodation-bookings', accommodationBookingRoutes);
-app.use('/api', uploadRoutes); // Upload endpoint for S3
-
-app.use('/api', createChatRouter(io, connectedUsers)); 
-
-
-app.use('/api/admin', adminAnalysisRouter);
-app.use('/api/admin/super', superAdmin);
+app.use('/api', reportRoutes);
+app.use('/api', reviewRoutes);
+app.use('/api', accommodationProviderRoutes);
+app.use('/api', accommodationRoutes);
+app.use('/api', roomRoutes);
+app.use('/api', accommodationBookingRoutes);
+app.use('/api', uploadRoutes);
+app.use('/api', createChatRouter(io, connectedUsers));
+app.use('/api', adminAnalysisRouter);
+app.use('/api', superAdmin);
 
 app.get('/test-socket', (req, res) => {
   res.sendFile(__dirname + '/test-chat.html');
