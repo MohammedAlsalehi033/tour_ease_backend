@@ -48,6 +48,8 @@ const io = new SocketIOServer(server, {
 
 
 
+
+
 const connectedUsers = new Map();
 io.on('connection', (socket) => {
   console.log('New socket connection:', socket.id);
@@ -92,10 +94,7 @@ io.on('connection', (socket) => {
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static('uploads'));
-
-// Routes - All routes use /api as base
+// Routes
 app.use('/api', authRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', commentRoutes);
@@ -112,7 +111,7 @@ app.use('/api', accommodationProviderRoutes);
 app.use('/api', accommodationRoutes);
 app.use('/api', roomRoutes);
 app.use('/api', accommodationBookingRoutes);
-app.use('/api', uploadRoutes);
+app.use('/api', uploadRoutes); // Upload endpoint for S3
 app.use('/api', createChatRouter(io, connectedUsers));
 app.use('/api', adminAnalysisRouter);
 app.use('/api', superAdmin);
