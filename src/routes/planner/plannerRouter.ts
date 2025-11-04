@@ -1,13 +1,7 @@
 import express from 'express';
 import { generatePlan, refinePlan, confirmBooking } from '../../controllers/planner/plannerController';
-import { 
-  saveTripPlan, 
-  getSavedPlans, 
-  getSavedPlanById, 
-  updateSavedPlan, 
-  deleteSavedPlan,
-  bookSavedPlan 
-} from '../../controllers/planner/savedPlansController';
+import { PrismaClient } from '@prisma/client';
+import SavedPlansControllerClass from '../../controllers/planner/savedPlansControllerClass';
 import authMiddleware from '../../middleware/authMiddleware';
 
 const router = express.Router();
@@ -65,37 +59,40 @@ router.post('/confirm', authMiddleware(), confirmBooking);
  * Save a trip plan for later
  * Requires authentication
  */
-router.post('/saved', authMiddleware(), saveTripPlan);
+const prisma = new PrismaClient();
+const savedPlansController = new SavedPlansControllerClass(prisma);
+
+router.post('/saved', authMiddleware(), (req, res) => savedPlansController.saveTripPlan(req, res));
 
 /**
  * GET /api/planner/saved
  * Get all saved plans for authenticated user
  * Query params: status, tag, sortBy, order
  */
-router.get('/saved', authMiddleware(), getSavedPlans);
+router.get('/saved', authMiddleware(), (req, res) => savedPlansController.getSavedPlans(req, res));
 
 /**
  * GET /api/planner/saved/:id
  * Get a specific saved plan by ID
  */
-router.get('/saved/:id', authMiddleware(), getSavedPlanById);
+router.get('/saved/:id', authMiddleware(), (req, res) => savedPlansController.getSavedPlanById(req, res));
 
 /**
  * PUT /api/planner/saved/:id
  * Update a saved trip plan
  */
-router.put('/saved/:id', authMiddleware(), updateSavedPlan);
+router.put('/saved/:id', authMiddleware(), (req, res) => savedPlansController.updateSavedPlan(req, res));
 
 /**
  * DELETE /api/planner/saved/:id
  * Delete a saved trip plan
  */
-router.delete('/saved/:id', authMiddleware(), deleteSavedPlan);
+router.delete('/saved/:id', authMiddleware(), (req, res) => savedPlansController.deleteSavedPlan(req, res));
 
 /**
  * POST /api/planner/saved/:id/book
  * Book a saved trip plan
  */
-router.post('/saved/:id/book', authMiddleware(), bookSavedPlan);
+router.post('/saved/:id/book', authMiddleware(), (req, res) => savedPlansController.bookSavedPlan(req, res));
 
 module.exports = router
