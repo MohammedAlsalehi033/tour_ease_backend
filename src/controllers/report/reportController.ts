@@ -29,7 +29,10 @@ export class ReportController {
         accommodationBookingId,
       } = req.body;
 
-      const reporterId = req.user.id;
+      const reporterId = req.user?.id;
+      if (!reporterId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
 console.log(reporterId);
       // Validate required fields
       if (!reportableType || !reportReason || !description) {
@@ -155,7 +158,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -188,7 +191,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -224,7 +227,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -234,7 +237,10 @@ accommodationBookingId,
     try {
       const { id } = req.params;
       const { status, resolutionNotes } = req.body;
-      const resolvedBy = req.user.id;
+      const resolvedBy = req.user?.id;
+      if (!resolvedBy) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
 
       const reportId = parseInt(id);
 
@@ -311,11 +317,11 @@ accommodationBookingId,
         data: updatedReport,
       });
     } catch (error) {
-      console.error('Error updating report status:', error);
+      console.error('Error fetching report statistics:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -341,7 +347,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -363,11 +369,11 @@ accommodationBookingId,
         data: reports,
       });
     } catch (error) {
-      console.error('Error fetching reports for user:', error);
+      console.error('Error fetching pending reports count:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -382,11 +388,11 @@ accommodationBookingId,
         data: statistics,
       });
     } catch (error) {
-      console.error('Error fetching report statistics:', error);
+      console.error('Error updating report status:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -395,6 +401,11 @@ accommodationBookingId,
   async deleteReport(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
       const reportId = parseInt(id);
 
       if (isNaN(reportId)) {
@@ -424,7 +435,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -471,7 +482,7 @@ accommodationBookingId,
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

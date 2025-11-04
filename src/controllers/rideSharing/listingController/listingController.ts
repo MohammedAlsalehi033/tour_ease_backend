@@ -203,7 +203,7 @@ export default class ListingController {
         });
       }
 
-      const provider = listing.provider as any;
+      const provider = (listing as any).provider as any;
       const [
         licenseMmediaUrlsSignedUrls,
         vehicleMediaUrlsSignedUrls,
