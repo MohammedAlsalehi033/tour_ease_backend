@@ -13,7 +13,7 @@ export class SavedPlansControllerClass {
       const userId = req.user?.id;
       
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        return res.status(401).json({ error: 'User not authenicated' });
       }
 
       const {
