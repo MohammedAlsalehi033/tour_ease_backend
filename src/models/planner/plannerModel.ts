@@ -446,15 +446,20 @@ export class PlannerModel {
       try {
         console.log(`\n🤖 Enhancing plans with AI insights...`);
         
-        // Enhance top 3 plans
+        // COST OPTIMIZATION: Only enhance top plan with AI (if enabled)
+        // Other plans get basic enhancements without AI cost
         const plansToEnhance = bestResult.recommendedPlans.slice(0, 3);
         
-        for (const plan of plansToEnhance) {
+        for (let i = 0; i < plansToEnhance.length; i++) {
+          const plan = plansToEnhance[i];
           try {
+            // Only the first plan (top plan) gets full AI enhancement
+            const isTopPlan = i === 0;
             const enhancement = await AIPlannerAgent.enhancePlanWithAI(
               plan,
               request,
-              bestResult.recommendedPlans
+              bestResult.recommendedPlans,
+              isTopPlan
             );
 
             // Add AI enhancements to plan
