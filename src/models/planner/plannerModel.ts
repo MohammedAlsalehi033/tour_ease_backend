@@ -65,6 +65,64 @@ export class PlannerModel {
       ]
     });
 
+    // Fetch provider reviews for all providers
+    const providerIds = [...new Set(listings.map(l => l.providerId))];
+    const providerReviewsMap = new Map<string, any>();
+
+    for (const providerId of providerIds) {
+      try {
+        // Get all listings for this provider
+        const providerListings = await prisma.transportationListing.findMany({
+          where: { providerId: providerId },
+          include: {
+            bookings: {
+              where: { status: 'complete' },
+              include: {
+                reviews: {
+                  include: {
+                    reviewer: {
+                      select: {
+                        id: true,
+                        username: true,
+                        mediaUrls: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // Collect all reviews from complete bookings
+        const allReviews = providerListings.flatMap(listing => 
+          listing.bookings.flatMap(booking => booking.reviews)
+        );
+
+        // Calculate stats
+        const totalReviews = allReviews.length;
+        const sumRatings = allReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalReviews > 0 ? sumRatings / totalReviews : 0;
+
+        // Calculate rating distribution
+        const ratingDistribution = allReviews.reduce((acc, review) => {
+          acc[review.rating] = (acc[review.rating] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+
+        providerReviewsMap.set(String(providerId), {
+          reviews: allReviews.slice(0, 5), // Get top 5 most recent reviews
+          stats: {
+            totalReviews,
+            averageRating,
+            ratingDistribution
+          }
+        });
+      } catch (error) {
+        console.error(`Error fetching reviews for provider ${providerId}:`, error);
+      }
+    }
+
     return listings.map(listing => {
       const avgRating = listing.reviews.length > 0
         ? listing.reviews.reduce((sum, r) => sum + r.rating, 0) / listing.reviews.length
@@ -82,30 +140,26 @@ export class PlannerModel {
         endLocationText: listing.endLocationText,
         avgRating,
         totalCost: Number(listing.pricePerSeat) * seatsNeeded,
-        isReturnTrip
+        isReturnTrip,
+        providerReviews: providerReviewsMap.get(listing.providerId)
       };
     });
   }
 
   /**
-   * Allocate rooms for travelers
+   * Allocate rooms for travelers - returns multiple allocation options
    */
   static allocateRooms(
     availableRooms: any[],
     numberOfTravelers: number,
     numberOfNights: number
   ): RoomAllocation[] {
-    // Sort rooms by capacity (smallest to largest) for efficient allocation
-    const sortedRooms = [...availableRooms].sort((a, b) => a.capacity - b.capacity);
-    
-    let remainingTravelers = numberOfTravelers;
+    // Return ALL available room types with their individual allocation
     const allocations: RoomAllocation[] = [];
 
-    for (const room of sortedRooms) {
-      if (remainingTravelers <= 0) break;
-
-      const numberOfRoomsNeeded = Math.ceil(remainingTravelers / room.capacity);
-      const guestsInThisRoomType = Math.min(remainingTravelers, numberOfRoomsNeeded * room.capacity);
+    for (const room of availableRooms) {
+      const numberOfRoomsNeeded = Math.ceil(numberOfTravelers / room.capacity);
+      const guestsInThisRoomType = Math.min(numberOfTravelers, numberOfRoomsNeeded * room.capacity);
 
       allocations.push({
         roomId: room.id,
@@ -116,11 +170,10 @@ export class PlannerModel {
         guestsAllocated: guestsInThisRoomType,
         totalCost: Number(room.pricePerNight) * numberOfRoomsNeeded * numberOfNights
       });
-
-      remainingTravelers -= guestsInThisRoomType;
     }
 
-    return allocations;
+    // Sort by total cost
+    return allocations.sort((a, b) => a.totalCost - b.totalCost);
   }
 
   /**
@@ -184,41 +237,76 @@ export class PlannerModel {
     for (const accommodation of accommodations) {
       if (accommodation.rooms.length === 0) continue;
 
-      // Try to allocate rooms for this accommodation
-      const roomAllocations = this.allocateRooms(
+      // Get all possible room allocations
+      const allRoomAllocations = this.allocateRooms(
         accommodation.rooms,
         numberOfTravelers,
         numberOfNights
       );
 
-      // Check if we could allocate all travelers
-      const totalAllocated = roomAllocations.reduce((sum, r) => sum + r.guestsAllocated, 0);
-      if (totalAllocated < numberOfTravelers) continue;
+      // Filter room allocations that can accommodate all travelers
+      const validAllocations = allRoomAllocations.filter(allocation => 
+        allocation.guestsAllocated >= numberOfTravelers && 
+        allocation.totalCost <= maxBudget
+      );
 
-      const totalCost = roomAllocations.reduce((sum, r) => sum + r.totalCost, 0);
+      // If no single room type can accommodate all travelers, try mixed allocation
+      if (validAllocations.length === 0) {
+        const combinedAllocation = this.allocateMixedRooms(
+          accommodation.rooms,
+          numberOfTravelers,
+          numberOfNights
+        );
+        
+        if (combinedAllocation.length === 0) continue;
+        
+        const totalCost = combinedAllocation.reduce((sum, r) => sum + r.totalCost, 0);
+        if (totalCost > maxBudget) continue;
 
-      // Skip if exceeds budget
-      if (totalCost > maxBudget) continue;
+        const avgRating = accommodation.reviews.length > 0
+          ? accommodation.reviews.reduce((sum, r) => sum + r.rating, 0) / accommodation.reviews.length
+          : null;
 
-      const avgRating = accommodation.reviews.length > 0
-        ? accommodation.reviews.reduce((sum, r) => sum + r.rating, 0) / accommodation.reviews.length
-        : null;
+        accommodationOptions.push({
+          id: accommodation.id,
+          providerId: accommodation.providerId,
+          name: accommodation.name,
+          location: accommodation.location,
+          description: accommodation.description,
+          mediaUrls: accommodation.mediaUrls,
+          avgRating,
+          roomAllocations: combinedAllocation,
+          totalCost,
+          totalGuests: numberOfTravelers,
+          checkInDate,
+          checkOutDate,
+          numberOfNights
+        });
+      } else {
+        // Return ONE accommodation option with ALL valid room types
+        const avgRating = accommodation.reviews.length > 0
+          ? accommodation.reviews.reduce((sum, r) => sum + r.rating, 0) / accommodation.reviews.length
+          : null;
 
-      accommodationOptions.push({
-        id: accommodation.id,
-        providerId: accommodation.providerId,
-        name: accommodation.name,
-        location: accommodation.location,
-        description: accommodation.description,
-        mediaUrls: accommodation.mediaUrls,
-        avgRating,
-        roomAllocations,
-        totalCost,
-        totalGuests: numberOfTravelers,
-        checkInDate,
-        checkOutDate,
-        numberOfNights
-      });
+        // Use the cheapest option for totalCost (for sorting purposes)
+        const cheapestCost = validAllocations[0].totalCost;
+
+        accommodationOptions.push({
+          id: accommodation.id,
+          providerId: accommodation.providerId,
+          name: accommodation.name,
+          location: accommodation.location,
+          description: accommodation.description,
+          mediaUrls: accommodation.mediaUrls,
+          avgRating,
+          roomAllocations: validAllocations, // ALL room types that can accommodate
+          totalCost: cheapestCost,
+          totalGuests: numberOfTravelers,
+          checkInDate,
+          checkOutDate,
+          numberOfNights
+        });
+      }
     }
 
     // Sort by total cost and rating
@@ -227,6 +315,42 @@ export class PlannerModel {
       const scoreb = b.totalCost - (b.avgRating || 0) * 100;
       return scorea - scoreb;
     });
+  }
+
+  /**
+   * Allocate mixed room types to accommodate travelers
+   */
+  private static allocateMixedRooms(
+    availableRooms: any[],
+    numberOfTravelers: number,
+    numberOfNights: number
+  ): RoomAllocation[] {
+    // Sort rooms by capacity (smallest to largest) for efficient allocation
+    const sortedRooms = [...availableRooms].sort((a, b) => a.capacity - b.capacity);
+    
+    let remainingTravelers = numberOfTravelers;
+    const allocations: RoomAllocation[] = [];
+
+    for (const room of sortedRooms) {
+      if (remainingTravelers <= 0) break;
+
+      const numberOfRoomsNeeded = Math.ceil(remainingTravelers / room.capacity);
+      const guestsInThisRoomType = Math.min(remainingTravelers, numberOfRoomsNeeded * room.capacity);
+
+      allocations.push({
+        roomId: room.id,
+        roomType: room.roomType,
+        pricePerNight: Number(room.pricePerNight),
+        capacity: room.capacity,
+        numberOfRooms: numberOfRoomsNeeded,
+        guestsAllocated: guestsInThisRoomType,
+        totalCost: Number(room.pricePerNight) * numberOfRoomsNeeded * numberOfNights
+      });
+
+      remainingTravelers -= guestsInThisRoomType;
+    }
+
+    return allocations;
   }
 
   /**
@@ -271,13 +395,27 @@ export class PlannerModel {
       fallbackActivities.push(
         { title: 'Visit Badshahi Mosque', description: 'Explore the iconic Mughal-era mosque', upvotes: 0, tags: ['culture', 'history'], source: 'ai_suggestion' as const },
         { title: 'Lahore Fort Tour', description: 'Discover the historical Lahore Fort', upvotes: 0, tags: ['history', 'sightseeing'], source: 'ai_suggestion' as const },
-        { title: 'Food Street Experience', description: 'Taste authentic Lahori cuisine', upvotes: 0, tags: ['food', 'culture'], source: 'ai_suggestion' as const }
+        { title: 'Food Street Experience', description: 'Taste authentic Lahori cuisine', upvotes: 0, tags: ['food', 'culture'], source: 'ai_suggestion' as const },
+        { title: 'Shalimar Gardens Walk', description: 'Stroll through the beautiful Mughal gardens', upvotes: 0, tags: ['nature', 'history'], source: 'ai_suggestion' as const },
+        { title: 'Lahore Museum Visit', description: 'See ancient artifacts and art', upvotes: 0, tags: ['culture', 'museum'], source: 'ai_suggestion' as const },
+        { title: 'Minar-e-Pakistan Photo Stop', description: 'Take photos at the national monument', upvotes: 0, tags: ['history', 'sightseeing'], source: 'ai_suggestion' as const },
+        { title: 'Anarkali Bazaar Shopping', description: 'Shop for traditional clothes and crafts', upvotes: 0, tags: ['shopping', 'culture'], source: 'ai_suggestion' as const },
+        { title: 'Liberty Market Evening', description: 'Enjoy modern shopping and cafes', upvotes: 0, tags: ['shopping', 'food'], source: 'ai_suggestion' as const },
+        { title: 'Wagah Border Ceremony', description: 'Witness the famous flag ceremony at the border', upvotes: 0, tags: ['culture', 'event'], source: 'ai_suggestion' as const },
+        { title: 'Sheesh Mahal Tour', description: 'Marvel at the Palace of Mirrors in Lahore Fort', upvotes: 0, tags: ['history', 'architecture'], source: 'ai_suggestion' as const }
       );
     } else if (location.toLowerCase().includes('islamabad')) {
       fallbackActivities.push(
         { title: 'Faisal Mosque Visit', description: 'See the largest mosque in Pakistan', upvotes: 0, tags: ['culture', 'sightseeing'], source: 'ai_suggestion' as const },
         { title: 'Daman-e-Koh Viewpoint', description: 'Enjoy panoramic views of Islamabad', upvotes: 0, tags: ['nature', 'sightseeing'], source: 'ai_suggestion' as const },
-        { title: 'Lok Virsa Museum', description: 'Explore Pakistani cultural heritage', upvotes: 0, tags: ['culture', 'museums'], source: 'ai_suggestion' as const }
+        { title: 'Lok Virsa Museum', description: 'Explore Pakistani cultural heritage', upvotes: 0, tags: ['culture', 'museums'], source: 'ai_suggestion' as const },
+        { title: 'Pakistan Monument Tour', description: 'Visit the national monument and museum', upvotes: 0, tags: ['history', 'sightseeing'], source: 'ai_suggestion' as const },
+        { title: 'Centaurus Mall Shopping', description: 'Shop and dine at the premier mall', upvotes: 0, tags: ['shopping', 'food'], source: 'ai_suggestion' as const },
+        { title: 'Margalla Hills Hiking', description: 'Hike scenic trails in Margalla Hills National Park', upvotes: 0, tags: ['nature', 'adventure'], source: 'ai_suggestion' as const },
+        { title: 'Rawal Lake Picnic', description: 'Relax by the lake with boating and picnics', upvotes: 0, tags: ['nature', 'leisure'], source: 'ai_suggestion' as const },
+        { title: 'Saidpur Village Visit', description: 'Experience a historic village with restaurants and art', upvotes: 0, tags: ['culture', 'food'], source: 'ai_suggestion' as const },
+        { title: 'Islamabad Zoo', description: 'See animals and enjoy family time', upvotes: 0, tags: ['family', 'nature'], source: 'ai_suggestion' as const },
+        { title: 'Art Gallery Tour', description: 'Visit local art galleries for contemporary and traditional art', upvotes: 0, tags: ['culture', 'art'], source: 'ai_suggestion' as const }
       );
     }
 
@@ -721,7 +859,7 @@ export class PlannerModel {
   /**
    * Generate a human-readable description for a plan
    */
-  private static generatePlanDescription(
+  static generatePlanDescription(
     outbound: TransportationOption | null,
     returnTrip: TransportationOption | null,
     accommodation: AccommodationOption | null,
@@ -781,25 +919,25 @@ export class PlannerModel {
       return descriptions[locationName] || 'A popular destination worth visiting in the area.';
     };
 
-    // Location data for Lahore and Islamabad
+    // Location data for Lahore and Islamabad (will be enriched with full addresses from Google Places)
     const locationDatabase: Record<string, LocationDetails[]> = {
       'lahore': [
-        { name: 'Badshahi Mosque', address: 'Walled City, Lahore', latitude: 31.5881, longitude: 74.3099, googleMapsUrl: 'https://maps.google.com/?q=Badshahi+Mosque+Lahore' },
-        { name: 'Lahore Fort', address: 'Fort Road, Lahore', latitude: 31.5882, longitude: 74.3154, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Fort' },
-        { name: 'Food Street Gawalmandi', address: 'Gawalmandi, Lahore', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Food+Street+Gawalmandi' },
-        { name: 'Shalimar Gardens', address: 'GT Road, Lahore', latitude: 31.5870, longitude: 74.3836, googleMapsUrl: 'https://maps.google.com/?q=Shalimar+Gardens+Lahore' },
-        { name: 'Lahore Museum', address: 'Mall Road, Lahore', latitude: 31.5688, longitude: 74.3085, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Museum' },
-        { name: 'Minar-e-Pakistan', address: 'Iqbal Park, Lahore', latitude: 31.5925, longitude: 74.3095, googleMapsUrl: 'https://maps.google.com/?q=Minar-e-Pakistan' },
-        { name: 'Anarkali Bazaar', address: 'Anarkali, Lahore', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Anarkali+Bazaar' },
-        { name: 'Liberty Market', address: 'Gulberg, Lahore', latitude: 31.5086, longitude: 74.3499, googleMapsUrl: 'https://maps.google.com/?q=Liberty+Market+Lahore' },
+        { name: 'Badshahi Mosque', address: 'Fort Rd, Walled City of Lahore, Lahore, Punjab, Pakistan', latitude: 31.5881, longitude: 74.3099, googleMapsUrl: 'https://maps.google.com/?q=Badshahi+Mosque+Lahore' },
+        { name: 'Lahore Fort', address: 'Fort Rd, Walled City of Lahore, Lahore, Punjab, Pakistan', latitude: 31.5882, longitude: 74.3154, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Fort' },
+        { name: 'Food Street Gawalmandi', address: 'Gawalmandi Food Street, Lakshmi Chowk, Lahore, Punjab, Pakistan', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Food+Street+Gawalmandi' },
+        { name: 'Shalimar Gardens', address: 'Grand Trunk Rd, Baghbanpura, Lahore, Punjab, Pakistan', latitude: 31.5870, longitude: 74.3836, googleMapsUrl: 'https://maps.google.com/?q=Shalimar+Gardens+Lahore' },
+        { name: 'Lahore Museum', address: 'The Mall Rd, Anarkali Bazaar, Lahore, Punjab 54000, Pakistan', latitude: 31.5688, longitude: 74.3085, googleMapsUrl: 'https://maps.google.com/?q=Lahore+Museum' },
+        { name: 'Minar-e-Pakistan', address: 'Iqbal Park, Circular Rd, Lahore, Punjab, Pakistan', latitude: 31.5925, longitude: 74.3095, googleMapsUrl: 'https://maps.google.com/?q=Minar-e-Pakistan' },
+        { name: 'Anarkali Bazaar', address: 'Anarkali Bazaar, Lahore, Punjab, Pakistan', latitude: 31.5639, longitude: 74.3181, googleMapsUrl: 'https://maps.google.com/?q=Anarkali+Bazaar' },
+        { name: 'Liberty Market', address: 'Liberty Market Rd, Block E1 Gulberg III, Lahore, Punjab, Pakistan', latitude: 31.5086, longitude: 74.3499, googleMapsUrl: 'https://maps.google.com/?q=Liberty+Market+Lahore' },
       ],
       'islamabad': [
-        { name: 'Faisal Mosque', address: 'Shah Faisal Avenue, Islamabad', latitude: 33.7297, longitude: 73.0372, googleMapsUrl: 'https://maps.google.com/?q=Faisal+Mosque' },
-        { name: 'Pakistan Monument', address: 'Shakarparian, Islamabad', latitude: 33.6932, longitude: 73.0683, googleMapsUrl: 'https://maps.google.com/?q=Pakistan+Monument' },
-        { name: 'Daman-e-Koh', address: 'Margalla Hills, Islamabad', latitude: 33.7366, longitude: 73.0663, googleMapsUrl: 'https://maps.google.com/?q=Daman-e-Koh' },
-        { name: 'Lok Virsa Museum', address: 'Garden Avenue, Islamabad', latitude: 33.6841, longitude: 73.0735, googleMapsUrl: 'https://maps.google.com/?q=Lok+Virsa+Museum' },
-        { name: 'Centaurus Mall', address: 'Jinnah Avenue, Islamabad', latitude: 33.7102, longitude: 73.0565, googleMapsUrl: 'https://maps.google.com/?q=Centaurus+Mall' },
-        { name: 'Margalla Hills Trail', address: 'Trail 3, Islamabad', latitude: 33.7442, longitude: 73.0581, googleMapsUrl: 'https://maps.google.com/?q=Margalla+Hills+Trail+3' },
+        { name: 'Faisal Mosque', address: 'Shah Faisal Ave, E-8, Islamabad, Islamabad Capital Territory 44000, Pakistan', latitude: 33.7297, longitude: 73.0372, googleMapsUrl: 'https://maps.google.com/?q=Faisal+Mosque' },
+        { name: 'Pakistan Monument', address: 'Shakarparian Hills, Islamabad, Islamabad Capital Territory 44000, Pakistan', latitude: 33.6932, longitude: 73.0683, googleMapsUrl: 'https://maps.google.com/?q=Pakistan+Monument' },
+        { name: 'Daman-e-Koh', address: 'Margalla Hills National Park, Islamabad, Islamabad Capital Territory, Pakistan', latitude: 33.7366, longitude: 73.0663, googleMapsUrl: 'https://maps.google.com/?q=Daman-e-Koh' },
+        { name: 'Lok Virsa Museum', address: 'Garden Ave, Shakarparian, Islamabad, Islamabad Capital Territory 44000, Pakistan', latitude: 33.6841, longitude: 73.0735, googleMapsUrl: 'https://maps.google.com/?q=Lok+Virsa+Museum' },
+        { name: 'Centaurus Mall', address: 'Jinnah Avenue, F-8 Markaz F 8 Markaz F-8, Islamabad, Pakistan', latitude: 33.7102, longitude: 73.0565, googleMapsUrl: 'https://maps.google.com/?q=Centaurus+Mall' },
+        { name: 'Margalla Hills Trail', address: 'Trail 3, Margalla Hills National Park, Islamabad, Pakistan', latitude: 33.7442, longitude: 73.0581, googleMapsUrl: 'https://maps.google.com/?q=Margalla+Hills+Trail+3' },
       ]
     };
 
@@ -991,7 +1129,7 @@ export class PlannerModel {
           activity.type === 'shopping';
         
         if (!shouldEnrich || !activity.location.name || activity.location.name === 'Hotel') {
-          console.log(`  ⊘ Skipped (using AI description): ${activity.location.name}`);
+          console.log(`  ⊘ Skipped (using default description): ${activity.location.name}`);
           continue;
         }
 
@@ -1028,12 +1166,14 @@ export class PlannerModel {
               activity.description = placeDetails.description;
             }
 
-            // Update address if we got a more complete one
+            // Update address with the full Google Places address (most complete)
             if (placeDetails.address) {
               activity.location.address = placeDetails.address;
             }
 
             console.log(`  ✓ Enriched: ${activity.location.name} (Rating: ${placeDetails.rating || 'N/A'}) [${apiCallsCount}/${maxApiCalls}]`);
+          } else {
+            console.log(`  ⊘ No Google data found for: ${activity.location.name} (using default address)`);
           }
         } catch (error) {
           console.error(`  ✗ Failed to enrich ${activity.location.name}:`, error);

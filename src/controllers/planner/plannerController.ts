@@ -7,6 +7,9 @@ import {
   BookingConfirmationRequest,
   BookingConfirmationResponse 
 } from '../../Types/plannerTypes';
+import { container } from 'tsyringe';
+import { OfferController } from '../rideSharing/OfferController/OfferController';
+import AccommodationBookingController from '../accommodationBooking/accommodationBookingController';
 
 const prisma = new PrismaClient();
 
@@ -339,7 +342,16 @@ export const confirmBooking = async (req: Request, res: Response) => {
     bookingResult.success = hasAnyBooking && (bookingResult.errors?.length || 0) === 0;
     
     if (bookingResult.success) {
-      bookingResult.message = 'All bookings confirmed successfully';
+      // Check if transportation bookings are pending offers
+      const hasPendingOffers = 
+        (bookingResult.bookings.transportationBookings.outbound?.status === 'pending' && !bookingResult.bookings.transportationBookings.outbound?.id) ||
+        (bookingResult.bookings.transportationBookings.return?.status === 'pending' && !bookingResult.bookings.transportationBookings.return?.id);
+      
+      if (hasPendingOffers) {
+        bookingResult.message = 'Offers sent to transportation providers. Accommodation bookings confirmed. Awaiting provider approval for transportation.';
+      } else {
+        bookingResult.message = 'All bookings confirmed successfully';
+      }
     } else if (hasAnyBooking) {
       bookingResult.message = 'Some bookings confirmed with errors';
     } else {
@@ -359,7 +371,7 @@ export const confirmBooking = async (req: Request, res: Response) => {
 };
 
 /**
- * Process a transportation booking and send offer to driver
+ * Process a transportation booking using existing OfferController
  */
 async function processTransportationBooking(
   userId: string,
@@ -367,7 +379,7 @@ async function processTransportationBooking(
   seatsNeeded: number,
   type: 'outbound' | 'return'
 ) {
-  // Get the listing
+  // Get the listing to retrieve provider info and validate
   const listing = await prisma.transportationListing.findUnique({
     where: { id: listingId },
     include: { provider: true }
@@ -383,51 +395,54 @@ async function processTransportationBooking(
 
   const totalPrice = Number(listing.pricePerSeat) * seatsNeeded;
 
-  // Create an offer to the driver
-  const offer = await prisma.offer.create({
-    data: {
+  // Use the existing OfferController to create the offer
+  // This ensures all edge cases and notifications are handled properly
+  const offerController = container.resolve(OfferController);
+  
+  // Create a mock request/response to use with the existing controller
+  const mockReq: any = {
+    body: {
       senderId: userId,
       recipientId: listing.providerId,
-      transportationListingId: listingId,
       pricePerSeat: listing.pricePerSeat,
       seatsRequested: seatsNeeded,
-      message: `Booking request for ${seatsNeeded} seat(s) - ${type} trip`,
-      status: 'pending'
+      message: `Booking request for ${seatsNeeded} seat(s) - ${type} trip from planner`,
+      transportationListingId: listingId
     }
-  });
+  };
 
-  // Create a pending booking
-  const booking = await prisma.transportationBooking.create({
-    data: {
-      travelerId: userId,
-      transportationListingId: listingId,
-      offerId: offer.id,
-      seatsBooked: seatsNeeded,
-      totalPrice: totalPrice,
-      status: 'pending',
-      bookingSource: 'planner'
-    }
-  });
+  let offerResult: any = null;
+  const mockRes: any = {
+    status: (code: number) => ({
+      json: (data: any) => {
+        if (code === 201 && data.success) {
+          offerResult = data.data;
+        } else {
+          throw new Error(data.message || 'Failed to create offer');
+        }
+      }
+    })
+  };
 
-  // Send notification to driver
-  await prisma.notification.create({
-    data: {
-      userId: listing.providerId,
-      message: `New booking request for ${seatsNeeded} seat(s) on your ${listing.startLocationText} to ${listing.endLocationText} trip`,
-      type: 'booking_request'
-    }
-  });
+  // Call the existing createOffer method
+  await offerController.createOffer(mockReq, mockRes);
 
+  if (!offerResult) {
+    throw new Error('Failed to create transportation offer');
+  }
+
+  // Return offer details - the provider will need to accept it
   return {
-    id: booking.id,
-    status: booking.status,
-    totalPrice: Number(booking.totalPrice),
-    offerId: offer.id
+    offerId: offerResult.id,
+    status: 'pending',
+    totalPrice: totalPrice,
+    message: 'Offer sent to transportation provider and awaiting approval',
+    id: null // No booking ID yet since the offer hasn't been accepted
   };
 }
 
 /**
- * Process accommodation bookings for multiple rooms
+ * Process accommodation bookings using existing AccommodationBookingController
  */
 async function processAccommodationBookings(
   userId: string,
@@ -441,9 +456,12 @@ async function processAccommodationBookings(
     status: string;
     totalPrice: number;
   }> = [];
+
+  const accommodationBookingController = container.resolve(AccommodationBookingController);
   const numberOfNights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
   for (const allocation of roomAllocations) {
+    // Get room details to calculate price
     const room = await prisma.room.findUnique({
       where: { id: allocation.roomId }
     });
@@ -452,62 +470,46 @@ async function processAccommodationBookings(
       throw new Error(`Room ${allocation.roomId} not found`);
     }
 
-    // Check availability
-    const conflictingBookings = await prisma.accommodationBooking.count({
-      where: {
-        roomId: allocation.roomId,
-        status: { in: ['confirmed', 'pending'] },
-        OR: [
-          {
-            checkInDate: { lte: checkOutDate },
-            checkOutDate: { gte: checkInDate }
-          }
-        ]
-      }
-    });
-
-    if (conflictingBookings > 0) {
-      throw new Error(`Room ${allocation.roomId} is not available for the selected dates`);
-    }
-
-    // Create booking for each room
+    // Create booking for each room using the existing controller
     for (let i = 0; i < allocation.numberOfRooms; i++) {
       const totalPrice = Number(room.pricePerNight) * numberOfNights;
 
-      const booking = await prisma.accommodationBooking.create({
-        data: {
+      // Create mock request/response for the existing controller
+      const mockReq: any = {
+        body: {
           travelerId: userId,
           roomId: allocation.roomId,
-          checkInDate,
-          checkOutDate,
-          totalPrice: totalPrice,
-          status: 'confirmed' // Auto-confirm accommodation bookings
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          totalPrice: totalPrice
         }
-      });
+      };
+
+      let bookingResult: any = null;
+      const mockRes: any = {
+        status: (code: number) => ({
+          json: (data: any) => {
+            if (code === 201 && data.success) {
+              bookingResult = data.data;
+            } else {
+              throw new Error(data.message || 'Failed to create accommodation booking');
+            }
+          }
+        })
+      };
+
+      // Use the existing createAccommodationBooking method
+      await accommodationBookingController.createAccommodationBooking(mockReq, mockRes);
+
+      if (!bookingResult) {
+        throw new Error(`Failed to create booking for room ${allocation.roomId}`);
+      }
 
       bookings.push({
-        id: booking.id,
-        roomId: booking.roomId,
-        status: booking.status,
-        totalPrice: Number(booking.totalPrice)
-      });
-    }
-  }
-
-  // Notify accommodation provider
-  if (bookings.length > 0) {
-    const firstRoom = await prisma.room.findUnique({
-      where: { id: roomAllocations[0].roomId },
-      include: { accommodation: true }
-    });
-
-    if (firstRoom) {
-      await prisma.notification.create({
-        data: {
-          userId: firstRoom.accommodation.providerId,
-          message: `New booking: ${bookings.length} room(s) from ${checkInDate.toLocaleDateString()} to ${checkOutDate.toLocaleDateString()}`,
-          type: 'accommodation_booking'
-        }
+        id: bookingResult.id,
+        roomId: bookingResult.roomId,
+        status: bookingResult.status,
+        totalPrice: Number(bookingResult.totalPrice)
       });
     }
   }
