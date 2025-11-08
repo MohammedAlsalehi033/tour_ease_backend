@@ -105,16 +105,21 @@ app.use('/api', offerRoutes);
 app.use('/api', adminRouter);
 app.use('/api', transportationBookingRouter);
 app.use('/api/planner', AIPlannerRoute);
-app.use('/api', reportRoutes);
-app.use('/api', reviewRoutes);
-app.use('/api', accommodationProviderRoutes);
-app.use('/api', accommodationRoutes);
-app.use('/api', roomRoutes);
-app.use('/api', accommodationBookingRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/accommodation-providers', accommodationProviderRoutes);
+app.use('/api/accommodations', accommodationRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/accommodation-bookings', accommodationBookingRoutes);
 app.use('/api', uploadRoutes); // Upload endpoint for S3
-app.use('/api', createChatRouter(io, connectedUsers));
-app.use('/api', adminAnalysisRouter);
-app.use('/api', superAdmin);
+
+app.use('/api', createChatRouter(io, connectedUsers)); 
+
+
+app.use('/api/admin', adminAnalysisRouter);
+app.use('/api/admin/super', superAdmin);
+
+
 
 app.get('/test-socket', (req, res) => {
   res.sendFile(__dirname + '/test-chat.html');
