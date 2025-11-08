@@ -327,7 +327,7 @@ accommodationBookingId,
   }
 
   // Get reports by reporter ID
-  async getReportsByReporter(req: Request, res: Response) {
+  async getReportsByReporter(req: any, res: Response) {
     try {
       const { page = 1, limit = 10 } = req.query;
       const reporterId = req.user.id;
