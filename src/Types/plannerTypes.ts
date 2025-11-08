@@ -12,6 +12,14 @@ export interface TransportationOption {
   avgRating: number | null;
   totalCost: number; // pricePerSeat * seatsNeeded
   isReturnTrip: boolean;
+  providerReviews?: {
+    reviews: any[];
+    stats: {
+      totalReviews: number;
+      averageRating: number;
+      ratingDistribution: Record<number, number>;
+    };
+  };
 }
 
 export interface RoomAllocation {
@@ -207,16 +215,18 @@ export interface BookingConfirmationResponse {
   bookings: {
     transportationBookings: {
       outbound?: {
-        id: number;
+        id?: number | null; // Optional since offer may be pending
         status: string;
         totalPrice: number;
         offerId?: number;
+        message?: string; // Message about pending approval
       };
       return?: {
-        id: number;
+        id?: number | null; // Optional since offer may be pending
         status: string;
         totalPrice: number;
         offerId?: number;
+        message?: string; // Message about pending approval
       };
     };
     accommodationBookings: {

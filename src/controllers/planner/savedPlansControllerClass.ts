@@ -31,9 +31,9 @@ export class SavedPlansControllerClass {
         selectedAccommodationId,
         selectedRoomAllocations = [],
         seatsNeeded,
-        planData,
         notes,
-        tags = []
+        tags = [],
+        ...restPayload // Capture all remaining fields from the frontend
       } = req.body;
 
       // Validation
@@ -42,6 +42,15 @@ export class SavedPlansControllerClass {
           error: 'Missing required fields: planName, startLocation, endLocation, startTime, endTime, budget, numberOfTravelers'
         });
       }
+
+      // Store the entire payload in planData
+      // This includes: searchResultsData, itinerary, tripSummary, requestSummary, 
+      // availableOptions, recommendedPlans, optimalPlan, and any other fields
+      const planData = {
+        ...restPayload,
+        // Preserve any additional metadata
+        savedAt: new Date().toISOString()
+      };
 
       // Create saved plan
       const savedPlan = await this.prisma.savedTripPlan.create({
@@ -60,7 +69,7 @@ export class SavedPlansControllerClass {
           selectedReturnTransportId,
           selectedAccommodationId,
           seatsNeeded,
-          planData,
+          planData, // Save all the extra data here
           notes,
           tags,
           status: 'draft'
@@ -177,10 +186,16 @@ export class SavedPlansControllerClass {
         }
       });
 
+      // Flatten planData into each saved plan for easier frontend consumption
+      const formattedPlans = savedPlans.map(plan => ({
+        ...plan,
+        ...(plan.planData as object || {}) // Spread planData fields to top level
+      }));
+
       res.status(200).json({
         success: true,
-        data: savedPlans,
-        count: savedPlans.length
+        data: formattedPlans,
+        count: formattedPlans.length
       });
 
     } catch (error) {
@@ -255,9 +270,15 @@ export class SavedPlansControllerClass {
         data: { lastViewedAt: new Date() }
       });
 
+      // Flatten planData into the response for easier frontend consumption
+      const formattedPlan = {
+        ...savedPlan,
+        ...(savedPlan.planData as object || {}) // Spread planData fields to top level
+      };
+
       res.status(200).json({
         success: true,
-        data: savedPlan
+        data: formattedPlan
       });
 
     } catch (error) {
@@ -293,10 +314,10 @@ export class SavedPlansControllerClass {
         selectedAccommodationId,
         selectedRoomAllocations,
         seatsNeeded,
-        planData,
         notes,
         tags,
-        status
+        status,
+        ...restPayload // Capture all remaining fields for planData
       } = req.body;
 
       // Check ownership
@@ -327,10 +348,17 @@ export class SavedPlansControllerClass {
       if (selectedReturnTransportId !== undefined) updateData.selectedReturnTransportId = selectedReturnTransportId;
       if (selectedAccommodationId !== undefined) updateData.selectedAccommodationId = selectedAccommodationId;
       if (seatsNeeded !== undefined) updateData.seatsNeeded = seatsNeeded;
-      if (planData !== undefined) updateData.planData = planData;
       if (notes !== undefined) updateData.notes = notes;
       if (tags !== undefined) updateData.tags = tags;
       if (status !== undefined) updateData.status = status;
+      
+      // Update planData if there are any extra fields
+      if (Object.keys(restPayload).length > 0) {
+        updateData.planData = {
+          ...restPayload,
+          updatedAt: new Date().toISOString()
+        };
+      }
 
       // Update saved plan
       const updatedPlan = await this.prisma.savedTripPlan.update({
