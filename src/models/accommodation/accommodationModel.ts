@@ -6,7 +6,85 @@ export default class AccommodationModel {
   private fileUploader: FileUploaderForS3;
 
   constructor() {
-    this.fileUploader = new FileUploaderForS3();
+    try {
+      this.fileUploader = new FileUploaderForS3();
+    } catch (error) {
+      console.error("Failed to initialize S3 FileUploader:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper function to convert S3 keys to signed URLs (async)
+   */
+  private async s3ToSignedUrl(key: string): Promise<string> {
+    try {
+      return await this.fileUploader.myGetSignedUrl(key, 3600); // 1 hour expiry
+    } catch (error) {
+      console.error(`Failed to generate signed URL for key: ${key}`, error);
+      // Fallback to direct S3 URL if signing fails
+      const bucket = process.env.S3_BUCKET_NAME || 'tour-ease';
+      const region = process.env.AWS_REGION || 'ap-south-1';
+      return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+    }
+  }
+
+  /**
+   * Helper function to transform accommodation data with S3 signed URLs
+   */
+  private async transformAccommodationWithS3Urls(accommodation: any): Promise<any> {
+    if (!accommodation) return null;
+
+    try {
+      // Transform media URLs in parallel
+      const [
+        accommodationMediaUrls,
+        providerMediaUrls,
+        roomsWithUrls,
+        reviewsWithUrls
+      ] = await Promise.all([
+        // Accommodation media URLs
+        Promise.all((accommodation.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key))),
+        // Provider user media URLs
+        accommodation.provider?.user?.mediaUrls 
+          ? Promise.all((accommodation.provider.user.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key)))
+          : Promise.resolve([]),
+        // Room media URLs
+        accommodation.rooms 
+          ? Promise.all(accommodation.rooms.map(async (room: any) => ({
+              ...room,
+              mediaUrls: await Promise.all((room.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key))),
+            })))
+          : Promise.resolve([]),
+        // Reviewer media URLs
+        accommodation.reviews 
+          ? Promise.all(accommodation.reviews.map(async (review: any) => ({
+              ...review,
+              reviewer: review.reviewer ? {
+                ...review.reviewer,
+                mediaUrls: await Promise.all((review.reviewer.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key))),
+              } : review.reviewer,
+            })))
+          : Promise.resolve([]),
+      ]);
+
+      return {
+        ...accommodation,
+        mediaUrls: accommodationMediaUrls,
+        provider: accommodation.provider ? {
+          ...accommodation.provider,
+          user: accommodation.provider.user ? {
+            ...accommodation.provider.user,
+            mediaUrls: providerMediaUrls,
+          } : accommodation.provider.user,
+        } : accommodation.provider,
+        rooms: roomsWithUrls,
+        reviews: reviewsWithUrls,
+      };
+    } catch (error) {
+      console.error("Error transforming accommodation with S3 URLs:", error);
+      return accommodation; // Return original data if transformation fails
+    }
   }
 
   /**
@@ -82,7 +160,7 @@ export default class AccommodationModel {
           },
         },
       });
-      return accommodation;
+      return this.transformAccommodationWithS3Urls(accommodation);
     } catch (error) {
       console.error("Error getting accommodation:", error);
       throw error;
@@ -171,10 +249,15 @@ export default class AccommodationModel {
         };
       });
 
+      // Transform all accommodations with S3 URLs
+      const transformedAccommodations = accommodationsWithRatings.map((acc) => 
+        this.transformAccommodationWithS3Urls(acc)
+      );
+
       const totalPages = Math.ceil(total / pageSize);
 
       return {
-        accommodations: accommodationsWithRatings,
+        accommodations: transformedAccommodations,
         total,
         page,
         pageSize,
@@ -343,30 +426,18 @@ export default class AccommodationModel {
         return null;
       }
 
-      // Convert accommodation mediaUrls (S3 keys) to signed URLs
+      // Convert S3 keys to signed URLs
       const accommodationMediaUrls = await Promise.all(
-        (accommodation.mediaUrls || []).map(key => 
-          this.fileUploader.myGetSignedUrl(key, 3600)
-        )
+        (accommodation.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key))
       );
-
-      // Convert provider profile image (S3 key) to signed URL
-      let providerProfileImage: string | null = null;
-      if (accommodation.provider.user.mediaUrls?.[0]) {
-        providerProfileImage = await this.fileUploader.myGetSignedUrl(
-          accommodation.provider.user.mediaUrls[0],
-          3600
-        );
-      }
-
-      // Convert room images (S3 keys) to signed URLs
+      const providerProfileImage = accommodation.provider.user.mediaUrls?.[0] 
+        ? await this.s3ToSignedUrl(accommodation.provider.user.mediaUrls[0])
+        : null;
       const roomsWithSignedUrls = await Promise.all(
-        accommodation.rooms.map(async (room) => ({
+        accommodation.rooms.map(async (room: any) => ({
           ...room,
           mediaUrls: await Promise.all(
-            (room.mediaUrls || []).map(key =>
-              this.fileUploader.myGetSignedUrl(key, 3600)
-            )
+            (room.mediaUrls || []).map((key: string) => this.s3ToSignedUrl(key))
           ),
         }))
       );
