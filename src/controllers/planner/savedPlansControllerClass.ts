@@ -31,10 +31,9 @@ export class SavedPlansControllerClass {
         selectedAccommodationId,
         selectedRoomAllocations = [],
         seatsNeeded,
-        planData = {}, // Default to an empty object
         notes,
         tags = [],
-        dayToDayActivities = [] // New field for day-to-day activities
+        ...restPayload // Capture all remaining fields from the frontend
       } = req.body;
 
       // Validation
@@ -44,8 +43,14 @@ export class SavedPlansControllerClass {
         });
       }
 
-      // Add day-to-day activities to planData
-      planData.dayToDayActivities = dayToDayActivities;
+      // Store the entire payload in planData
+      // This includes: searchResultsData, itinerary, tripSummary, requestSummary, 
+      // availableOptions, recommendedPlans, optimalPlan, and any other fields
+      const planData = {
+        ...restPayload,
+        // Preserve any additional metadata
+        savedAt: new Date().toISOString()
+      };
 
       // Create saved plan
       const savedPlan = await this.prisma.savedTripPlan.create({
@@ -64,7 +69,7 @@ export class SavedPlansControllerClass {
           selectedReturnTransportId,
           selectedAccommodationId,
           seatsNeeded,
-          planData, // Save the updated planData
+          planData, // Save all the extra data here
           notes,
           tags,
           status: 'draft'
