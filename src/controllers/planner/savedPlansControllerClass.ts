@@ -31,9 +31,10 @@ export class SavedPlansControllerClass {
         selectedAccommodationId,
         selectedRoomAllocations = [],
         seatsNeeded,
-        planData,
+        planData = {}, // Default to an empty object
         notes,
-        tags = []
+        tags = [],
+        dayToDayActivities = [] // New field for day-to-day activities
       } = req.body;
 
       // Validation
@@ -42,6 +43,9 @@ export class SavedPlansControllerClass {
           error: 'Missing required fields: planName, startLocation, endLocation, startTime, endTime, budget, numberOfTravelers'
         });
       }
+
+      // Add day-to-day activities to planData
+      planData.dayToDayActivities = dayToDayActivities;
 
       // Create saved plan
       const savedPlan = await this.prisma.savedTripPlan.create({
@@ -60,7 +64,7 @@ export class SavedPlansControllerClass {
           selectedReturnTransportId,
           selectedAccommodationId,
           seatsNeeded,
-          planData,
+          planData, // Save the updated planData
           notes,
           tags,
           status: 'draft'
