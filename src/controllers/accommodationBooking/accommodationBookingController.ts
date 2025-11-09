@@ -288,4 +288,322 @@ export default class AccommodationBookingController {
       });
     }
   }
+
+  /**
+   * Confirm booking after payment
+   * Provider confirms the booking once payment is received
+   */
+  async confirmBookingAfterPayment(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { paymentId, providerId } = req.body;
+
+      // Validate required fields
+      if (!paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: "paymentId is required",
+        });
+      }
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Verify provider owns this booking (optional - add provider verification)
+      if (providerId && booking.room?.accommodation?.providerId !== providerId) {
+        return res.status(403).json({
+          success: false,
+          message: "Unauthorized: You do not own this booking",
+        });
+      }
+
+      // Update booking status to confirmed
+      const updatedBooking = await this.model.updateBookingStatus(
+        parseInt(id),
+        "confirmed"
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Booking confirmed successfully after payment",
+      });
+    } catch (error: any) {
+      console.error("Error in confirmBookingAfterPayment:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to confirm booking",
+      });
+    }
+  }
+
+  /**
+   * Request refund for booking (after payment)
+   */
+  async requestRefund(req: any, res: any) {
+    try {
+      const { id } = req.params;
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is confirmed (payment done)
+      if (booking.status !== "confirmed") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only request refund for confirmed bookings (after payment)",
+        });
+      }
+
+      // Update booking status to refund
+      const updatedBooking = await this.model.updateBookingStatus(
+        parseInt(id),
+        "refund"
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Refund requested successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in requestRefund:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to request refund",
+      });
+    }
+  }
+
+  /**
+   * Cancel unpaid booking (before payment)
+   */
+  async cancelUnpaidBooking(req: any, res: any) {
+    try {
+      const { id } = req.params;
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is pending (before payment)
+      if (booking.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only cancel unpaid bookings (status: pending)",
+        });
+      }
+
+      // Update booking status to cancelled
+      const updatedBooking = await this.model.updateBookingStatus(
+        parseInt(id),
+        "cancelled"
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Unpaid booking cancelled successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in cancelUnpaidBooking:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to cancel unpaid booking",
+      });
+    }
+  }
+
+  /**
+   * Mark booking as completed (only for confirmed bookings)
+   */
+  async markBookingCompleted(req: any, res: any) {
+    try {
+      const { id } = req.params;
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is confirmed
+      if (booking.status !== "confirmed") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only mark confirmed bookings as completed",
+        });
+      }
+
+      // Update booking status to completed
+      const updatedBooking = await this.model.updateBookingStatus(
+        parseInt(id),
+        "completed"
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Booking marked as completed successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in markBookingCompleted:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to mark booking as completed",
+      });
+    }
+  }
+
+  /**
+   * Extend checkout date
+   */
+  async extendCheckout(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { newCheckoutDate } = req.body;
+
+      if (!newCheckoutDate) {
+        return res.status(400).json({
+          success: false,
+          message: "newCheckoutDate is required",
+        });
+      }
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is in a valid status for extension
+      if (booking.status !== "confirmed" && booking.status !== "pending") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only extend checkout for confirmed or pending bookings",
+        });
+      }
+
+      const currentCheckoutDate = new Date(booking.checkOutDate);
+      const requestedCheckoutDate = new Date(newCheckoutDate);
+
+      // Validate that new date is after current checkout date
+      if (requestedCheckoutDate <= currentCheckoutDate) {
+        return res.status(400).json({
+          success: false,
+          message: "New checkout date must be after the current checkout date",
+        });
+      }
+
+      // Update the checkout date
+      const updatedBooking = await this.model.updateAccommodationBooking(
+        parseInt(id),
+        { checkOutDate: requestedCheckoutDate }
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Checkout date extended successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in extendCheckout:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to extend checkout date",
+      });
+    }
+  }
+
+  /**
+   * Extend checkout date (allows any status except cancelled/completed)
+   */
+  async extendCheckoutAny(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { newCheckoutDate } = req.body;
+
+      if (!newCheckoutDate) {
+        return res.status(400).json({
+          success: false,
+          message: "newCheckoutDate is required",
+        });
+      }
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is confirmed (only confirmed bookings allowed)
+      if (booking.status !== "confirmed") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only extend checkout for confirmed bookings",
+        });
+      }
+
+      const currentCheckoutDate = new Date(booking.checkOutDate);
+      const requestedCheckoutDate = new Date(newCheckoutDate);
+
+      // Validate that new date is after current checkout date
+      if (requestedCheckoutDate <= currentCheckoutDate) {
+        return res.status(400).json({
+          success: false,
+          message: "New checkout date must be after the current checkout date",
+        });
+      }
+
+      // Update the checkout date
+      const updatedBooking = await this.model.updateAccommodationBooking(
+        parseInt(id),
+        { checkOutDate: requestedCheckoutDate }
+      );
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Checkout date extended successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in extendCheckoutAny:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to extend checkout date",
+      });
+    }
+  }
 }

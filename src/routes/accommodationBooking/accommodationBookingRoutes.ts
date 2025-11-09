@@ -81,4 +81,52 @@ router.get(
   )
 );
 
+// Confirm booking after payment (Provider endpoint)
+router.patch(
+  "/:id/confirm",
+  accommodationBookingController.confirmBookingAfterPayment.bind(
+    accommodationBookingController
+  )
+);
+
+// Request refund for booking (before payment)
+router.patch(
+  "/:id/refund",
+  accommodationBookingController.requestRefund.bind(
+    accommodationBookingController
+  )
+);
+
+// Cancel unpaid booking
+router.patch(
+  "/:id/cancel-unpaid",
+  accommodationBookingController.cancelUnpaidBooking.bind(
+    accommodationBookingController
+  )
+);
+
+// Mark booking as completed
+router.patch(
+  "/:id/complete",
+  accommodationBookingController.markBookingCompleted.bind(
+    accommodationBookingController
+  )
+);
+
+// Extend checkout date
+router.patch(
+  "/:id/extend-checkout",
+  accommodationBookingController.extendCheckout.bind(
+    accommodationBookingController
+  )
+);
+
+// Extend checkout date (allows any status except cancelled/completed)
+router.patch(
+  "/:id/extend-checkout-any",
+  accommodationBookingController.extendCheckoutAny.bind(
+    accommodationBookingController
+  )
+);
+
 module.exports = router;
