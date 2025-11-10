@@ -358,21 +358,24 @@ export class PlannerModel {
    */
   static async findActivities(
     interests: string[],
-    location: string
+    location: string,
+    numberOfDays: number = 7
   ): Promise<ActivityOption[]> {
     if (!interests || interests.length === 0) {
       interests = ['sightseeing', 'culture', 'food'];
     }
 
     try {
-      // Use AI to generate activity suggestions
+      // Use AI to generate activity suggestions - generate more activities for variety
       const aiActivities = await AIPlannerAgent.generateActivitySuggestions(
         location,
         interests,
         [], // No existing activities from DB
-        7 // Generate activities for up to 7 days
+        Math.max(7, numberOfDays), // Generate activities for the trip duration
+        new Set() // No used activities yet for first generation
       );
 
+      console.log(`✅ Generated ${aiActivities.length} AI activities for ${location}`);
       return aiActivities;
     } catch (error) {
       console.error('Error generating AI activities:', error);
@@ -613,17 +616,27 @@ export class PlannerModel {
           / (1000 * 60 * 60 * 24)
         );
 
+        // Track already available activity titles to avoid duplicates
+        const existingActivityTitles = new Set(
+          bestResult.availableOptions.activities.map(a => a.title)
+        );
+
         const aiActivities = await AIPlannerAgent.generateActivitySuggestions(
           request.endLocation,
           request.interests,
           bestResult.availableOptions.activities,
-          numberOfDays
+          numberOfDays,
+          existingActivityTitles
         );
 
-        // Merge AI activities with existing ones
+        // Merge AI activities with existing ones, avoiding duplicates
+        const uniqueAiActivities = aiActivities.filter(
+          ai => !existingActivityTitles.has(ai.title)
+        );
+        
         bestResult.availableOptions.activities = [
           ...bestResult.availableOptions.activities,
-          ...aiActivities
+          ...uniqueAiActivities
         ];
 
       } catch (error) {
@@ -700,7 +713,7 @@ export class PlannerModel {
         numberOfTravelers,
         estimatedAccommodationCost
       ),
-      this.findActivities(interests, endLocation)
+      this.findActivities(interests, endLocation, numberOfNights)
     ]);
 
     // Generate trip options (combinations)
@@ -943,6 +956,26 @@ export class PlannerModel {
 
     const destinationKey = cleanDest;
     const locations = locationDatabase[destinationKey] || [];
+    
+    // Track used locations to avoid repetition
+    const usedLocationIndices = new Set<number>();
+    
+    // Helper to get next unused location
+    const getNextUnusedLocation = (): LocationDetails | null => {
+      for (let i = 0; i < locations.length; i++) {
+        if (!usedLocationIndices.has(i)) {
+          usedLocationIndices.add(i);
+          return locations[i];
+        }
+      }
+      // If all locations used, reset and start over
+      usedLocationIndices.clear();
+      if (locations.length > 0) {
+        usedLocationIndices.add(0);
+        return locations[0];
+      }
+      return null;
+    };
 
     for (let day = 0; day < totalDays; day++) {
       const currentDate = new Date(startDate);
@@ -967,24 +1000,26 @@ export class PlannerModel {
           tips: 'Keep your ID and booking confirmation ready'
         });
         
+        const lunchLoc = getNextUnusedLocation();
         activities.push({
           time: '02:00 PM',
           duration: 90,
           type: 'lunch',
           title: 'Welcome Lunch',
-          description: locations[0] ? getLocationDescription(locations[0].name) : 'Try local cuisine at a popular restaurant',
-          location: locations[0] || { name: 'Local Restaurant', address: destination },
+          description: lunchLoc ? getLocationDescription(lunchLoc.name) : 'Try local cuisine at a popular restaurant',
+          location: lunchLoc || { name: 'Local Restaurant', address: destination },
           estimatedCost: 1500 * numberOfTravelers,
           tips: 'Try the local specialties!'
         });
 
+        const eveningLoc = getNextUnusedLocation();
         activities.push({
           time: '04:00 PM',
           duration: 120,
           type: 'attraction',
           title: 'City Orientation Walk',
-          description: locations[1] ? getLocationDescription(locations[1].name) : 'Light evening walk to explore nearby area',
-          location: locations[1] || { name: 'City Center', address: destination },
+          description: eveningLoc ? getLocationDescription(eveningLoc.name) : 'Light evening walk to explore nearby area',
+          location: eveningLoc || { name: 'City Center', address: destination },
           estimatedCost: 500 * numberOfTravelers,
           tips: 'Great time for photos in evening light'
         });
@@ -1001,13 +1036,14 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
+        const shoppingLoc = getNextUnusedLocation();
         activities.push({
           time: '10:00 AM',
           duration: 90,
           type: 'shopping',
           title: 'Last-minute Shopping',
           description: 'Pick up souvenirs and local products',
-          location: locations[locations.length - 1] || { name: 'Shopping Area', address: destination },
+          location: shoppingLoc || { name: 'Shopping Area', address: destination },
           estimatedCost: 2000 * numberOfTravelers,
           tips: 'Bargaining is common in local markets'
         });
@@ -1034,8 +1070,8 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
-        // Morning activity
-        const morningLoc = locations[(day * 2) % locations.length];
+        // Morning activity - get unique location
+        const morningLoc = getNextUnusedLocation();
         activities.push({
           time: '10:00 AM',
           duration: 150,
@@ -1048,19 +1084,21 @@ export class PlannerModel {
           mapUrl: morningLoc?.googleMapsUrl
         });
 
+        // Lunch at a unique location
+        const lunchLoc = getNextUnusedLocation();
         activities.push({
           time: '01:00 PM',
           duration: 90,
           type: 'lunch',
           title: 'Lunch',
           description: 'Enjoy traditional local cuisine with authentic flavors and regional specialties',
-          location: locations[(day * 2 + 1) % locations.length] || { name: 'Restaurant', address: destination },
+          location: lunchLoc || { name: 'Restaurant', address: destination },
           estimatedCost: 2000 * numberOfTravelers,
           tips: 'Try the chef\'s special!'
         });
 
-        // Afternoon activity
-        const afternoonLoc = locations[(day * 2 + 2) % locations.length];
+        // Afternoon activity - get unique location
+        const afternoonLoc = getNextUnusedLocation();
         activities.push({
           time: '03:00 PM',
           duration: 180,

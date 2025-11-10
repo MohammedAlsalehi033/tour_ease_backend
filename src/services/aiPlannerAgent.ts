@@ -17,7 +17,7 @@ const CACHE_TTL = 3600000; // 1 hour
 const AI_FEATURES = {
   USE_AI_ANALYSIS: process.env.USE_AI_ANALYSIS !== 'false', // Can be disabled via env
   USE_AI_ENHANCEMENT: process.env.USE_AI_ENHANCEMENT === 'true', // Opt-in only
-  USE_AI_ACTIVITIES: process.env.USE_AI_ACTIVITIES === 'true', // Opt-in only
+  USE_AI_ACTIVITIES: process.env.USE_AI_ACTIVITIES !== 'false', // Enabled by default, can be disabled via env
   USE_AI_FEEDBACK: process.env.USE_AI_FEEDBACK !== 'false',
   MAX_ITERATIONS_FOR_AI: 2 // Only use AI for first 2 iterations
 };
@@ -259,7 +259,8 @@ Format: {"enhancedDescription": "str", "pros": ["str"], "cons": ["str"], "bestFo
     location: string,
     interests: string[],
     existingActivities: ActivityOption[],
-    numberOfDays: number
+    numberOfDays: number,
+    usedActivityTitles: Set<string> = new Set()
   ): Promise<ActivityOption[]> {
     // COST SAVING 1: Only generate if feature is enabled
     if (!AI_FEATURES.USE_AI_ACTIVITIES) {
@@ -267,14 +268,16 @@ Format: {"enhancedDescription": "str", "pros": ["str"], "cons": ["str"], "bestFo
       return [];
     }
 
-    // COST SAVING 2: If we already have enough activities, don't generate more
-    if (existingActivities.length >= 8) {
-      console.log('Sufficient existing activities, skipping AI generation');
+    // COST SAVING 2: Generate more activities - up to 3-4 per day
+    const maxActivitiesNeeded = numberOfDays * 3; // 3 activities per day
+    if (existingActivities.length >= maxActivitiesNeeded) {
+      console.log(`Sufficient existing activities (${existingActivities.length}/${maxActivitiesNeeded}), skipping AI generation`);
       return [];
     }
 
-    // COST SAVING 3: Check cache
-    const cacheKey = `activities_${location}_${interests.join('_')}`;
+    // COST SAVING 3: Check cache with used activities in key to ensure unique suggestions
+    const usedTitlesKey = Array.from(usedActivityTitles).sort().join('|');
+    const cacheKey = `activities_${location}_${interests.join('_')}_${usedTitlesKey}`;
     const cached = this.getFromCache<ActivityOption[]>(cacheKey);
     if (cached) {
       console.log('Using cached activity suggestions');
@@ -283,9 +286,16 @@ Format: {"enhancedDescription": "str", "pros": ["str"], "cons": ["str"], "bestFo
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-    // COST SAVING 4: Minimal prompt, limit activities generated
-    const numToGenerate = Math.min(5, 8 - existingActivities.length);
-    const activityPrompt = `Suggest ${numToGenerate} activities for ${location}. Interests: ${interests.join(', ')}. JSON array only:
+    // COST SAVING 4: Generate more activities to ensure variety
+    const numToGenerate = Math.min(10, maxActivitiesNeeded - existingActivities.length);
+    
+    // Build exclusion list from used activities
+    const excludeList = usedActivityTitles.size > 0 
+      ? `\nExclude these already-used activities: ${Array.from(usedActivityTitles).join(', ')}.` 
+      : '';
+    
+    const activityPrompt = `Suggest ${numToGenerate} UNIQUE activities for ${location}. Interests: ${interests.join(', ')}.${excludeList}
+Ensure each activity is different from others and previously suggested ones. JSON array only:
 [{"title": "str", "description": "str", "estimatedCost": num|null, "tags": ["str"]}]`;
 
     try {
@@ -298,7 +308,17 @@ Format: {"enhancedDescription": "str", "pros": ["str"], "cons": ["str"], "bestFo
       
       const aiActivities = JSON.parse(text);
       
-      const activities = aiActivities.map((activity: any) => ({
+      // Filter out any activities that match already-used titles (case-insensitive)
+      const filteredActivities = aiActivities.filter((activity: any) => {
+        const titleLower = activity.title.toLowerCase();
+        return !Array.from(usedActivityTitles).some(used => 
+          used.toLowerCase() === titleLower || 
+          titleLower.includes(used.toLowerCase()) ||
+          used.toLowerCase().includes(titleLower)
+        );
+      });
+      
+      const activities = filteredActivities.map((activity: any) => ({
         title: activity.title,
         description: activity.description,
         upvotes: 0,
@@ -308,6 +328,7 @@ Format: {"enhancedDescription": "str", "pros": ["str"], "cons": ["str"], "bestFo
       }));
       
       this.setCache(cacheKey, activities);
+      console.log(`✅ Generated ${activities.length} unique AI activities for ${location}`);
       return activities;
     } catch (error) {
       console.error("AI Activity Generation Error:", error);
