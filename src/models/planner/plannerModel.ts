@@ -30,14 +30,19 @@ export class PlannerModel {
     detailedStartLocation?: { lat: number; lng: number }
   ): Promise<TransportationOption[]> {
     const timeWindowStart = new Date(departureDate);
+    // Set to start of day (00:00:00) to catch all rides on this day
+    timeWindowStart.setHours(0, 0, 0, 0);
+    
     const timeWindowEnd = new Date(departureDate);
     
-    // For outbound trips, search within same day and next 6 hours
-    // For return trips, search on the return date
+    // For outbound trips, search the entire departure day (until 23:59:59)
+    // For return trips, search the entire return date
     if (!isReturnTrip) {
-      timeWindowEnd.setHours(timeWindowEnd.getHours() + 6);
+      timeWindowEnd.setHours(23, 59, 59, 999);
     } else {
+      // For return trips, search the entire day plus some buffer for late returns
       timeWindowEnd.setDate(timeWindowEnd.getDate() + 1);
+      timeWindowEnd.setHours(23, 59, 59, 999);
     }
 
     // Extract the main city name from location strings
@@ -47,6 +52,8 @@ export class PlannerModel {
     const cleanEndCity = endLocation.split(',')[0].trim().replace(/\s+City$/i, '').trim();
 
     console.log(`   🔍 Searching rides: ${cleanStartCity} → ${cleanEndCity}`);
+    console.log(`   📅 Time window: ${timeWindowStart.toISOString()} to ${timeWindowEnd.toISOString()}`);
+    console.log(`   💰 Max price per seat: ${maxBudgetPerSeat} PKR, Seats needed: ${seatsNeeded}`);
     
     // Build where clause - use coordinates if provided for more precise matching
     const whereClause: any = {
@@ -118,20 +125,49 @@ export class PlannerModel {
           endLocationText: true,
           departureTime: true,
           pricePerSeat: true,
-          seatsAvailable: true
+          seatsAvailable: true,
+          providerId: true
         },
-        take: 3
+        take: 5
       });
       
       if (debugListings.length > 0) {
         console.log(`   ℹ️  But found ${debugListings.length} rides without time/budget constraints:`);
         debugListings.forEach(listing => {
-          console.log(`      - ID ${listing.id}: ${listing.startLocationText} → ${listing.endLocationText}`);
-          console.log(`        Departs: ${listing.departureTime}, Price: ${listing.pricePerSeat}, Seats: ${listing.seatsAvailable}`);
+          console.log(`      - Provider: ${listing.providerId}`);
+          console.log(`        Route: ${listing.startLocationText} → ${listing.endLocationText}`);
+          console.log(`        Departs: ${listing.departureTime.toISOString()}, Price: ${listing.pricePerSeat} PKR, Seats: ${listing.seatsAvailable}`);
+          
+          // Check why this ride was filtered out
+          const reasons: string[] = [];
+          if (listing.departureTime < timeWindowStart || listing.departureTime > timeWindowEnd) {
+            reasons.push(`❌ Time mismatch (ride at ${listing.departureTime.toISOString()}, window: ${timeWindowStart.toISOString()} - ${timeWindowEnd.toISOString()})`);
+          }
+          if (Number(listing.pricePerSeat) > maxBudgetPerSeat) {
+            reasons.push(`❌ Price too high (${listing.pricePerSeat} > ${maxBudgetPerSeat})`);
+          }
+          if (listing.seatsAvailable < seatsNeeded) {
+            reasons.push(`❌ Not enough seats (${listing.seatsAvailable} < ${seatsNeeded})`);
+          }
+          if (reasons.length > 0) {
+            console.log(`        Filtered because: ${reasons.join(', ')}`);
+          }
         });
       } else {
         console.log(`   ℹ️  No rides found at all between "${cleanStartCity}" and "${cleanEndCity}"`);
+        console.log(`   💡 Tip: Check if location names in database match the search terms`);
       }
+    } else {
+      // Show summary of found rides
+      console.log(`   ✅ Rides range: ${listings[0].departureTime.toISOString()} to ${listings[listings.length - 1].departureTime.toISOString()}`);
+      console.log(`   ✅ Price range: ${Math.min(...listings.map(l => Number(l.pricePerSeat)))} - ${Math.max(...listings.map(l => Number(l.pricePerSeat)))} PKR`);
+      
+      // Show top 5 cheapest rides
+      const sorted = [...listings].sort((a, b) => Number(a.pricePerSeat) - Number(b.pricePerSeat));
+      console.log(`   📋 Top 5 cheapest rides:`);
+      sorted.slice(0, 5).forEach((listing, idx) => {
+        console.log(`      ${idx + 1}. ${listing.provider.user.username} - ${listing.provider.vehicleType} @ ${listing.pricePerSeat} PKR/seat (${listing.seatsAvailable} seats)`);
+      });
     }
 
     // Fetch provider reviews for all providers
@@ -496,16 +532,76 @@ export class PlannerModel {
 
   /**
    * Calculate optimization score for a trip option
+   * IMPROVED: Score transport and accommodation separately to ensure cheap transport wins
    */
-  static calculateOptimizationScore(option: TripOption, budget: number): number {
+  static calculateOptimizationScore(option: TripOption, budget: number, debug: boolean = false): number {
     let score = 0;
+    const breakdown: any = {};
 
-    // Cost efficiency (40% weight)
-    const costRatio = option.costs.total / budget;
-    const costScore = Math.max(0, 100 - (costRatio * 100));
-    score += costScore * 0.4;
+    // Allocate budget proportionally (30% transport, 50% accommodation, 20% buffer)
+    const transportBudget = budget * 0.3;
+    const accommodationBudget = budget * 0.5;
+    
+    // TRANSPORT COST SCORE (30% of total score)
+    // Score transport cost against transport budget to create meaningful differences
+    const transportCost = option.costs.transportation;
+    const transportRatio = transportCost / transportBudget;
+    
+    let transportScore = 0;
+    if (transportRatio <= 0.1) {
+      // Super cheap transport (0-10% of transport budget): 95-100
+      transportScore = 100 - (transportRatio / 0.1) * 5;
+    } else if (transportRatio <= 0.3) {
+      // Very cheap (10-30%): 85-95
+      transportScore = 95 - ((transportRatio - 0.1) / 0.2) * 10;
+    } else if (transportRatio <= 0.6) {
+      // Moderate (30-60%): 65-85
+      transportScore = 85 - ((transportRatio - 0.3) / 0.3) * 20;
+    } else if (transportRatio <= 1.0) {
+      // Expensive (60-100%): 30-65
+      transportScore = 65 - ((transportRatio - 0.6) / 0.4) * 35;
+    } else {
+      // Over budget: 0-30
+      transportScore = Math.max(0, 30 - ((transportRatio - 1.0) / 0.5) * 30);
+    }
+    
+    const transportPoints = transportScore * 0.3;
+    score += transportPoints;
+    breakdown.transport = { 
+      cost: transportCost, 
+      budget: transportBudget, 
+      ratio: `${(transportRatio * 100).toFixed(1)}%`,
+      score: transportScore.toFixed(1), 
+      points: transportPoints.toFixed(1) 
+    };
 
-    // Rating quality (30% weight)
+    // ACCOMMODATION COST SCORE (30% of total score)
+    // Score accommodation separately
+    const accommodationCost = option.costs.accommodation;
+    const accommodationRatio = accommodationCost / accommodationBudget;
+    
+    let accommodationScore = 0;
+    if (accommodationRatio <= 0.3) {
+      accommodationScore = 100 - (accommodationRatio / 0.3) * 10;
+    } else if (accommodationRatio <= 0.6) {
+      accommodationScore = 90 - ((accommodationRatio - 0.3) / 0.3) * 20;
+    } else if (accommodationRatio <= 1.0) {
+      accommodationScore = 70 - ((accommodationRatio - 0.6) / 0.4) * 40;
+    } else {
+      accommodationScore = Math.max(0, 30 - ((accommodationRatio - 1.0) / 0.5) * 30);
+    }
+    
+    const accommodationPoints = accommodationScore * 0.3;
+    score += accommodationPoints;
+    breakdown.accommodation = { 
+      cost: accommodationCost, 
+      budget: accommodationBudget,
+      ratio: `${(accommodationRatio * 100).toFixed(1)}%`,
+      score: accommodationScore.toFixed(1), 
+      points: accommodationPoints.toFixed(1) 
+    };
+
+    // Rating quality (20% weight)
     let avgRating = 0;
     let ratingCount = 0;
 
@@ -522,17 +618,30 @@ export class PlannerModel {
       ratingCount++;
     }
 
+    let ratingPoints = 0;
     if (ratingCount > 0) {
       avgRating = avgRating / ratingCount;
-      score += (avgRating / 5) * 100 * 0.3;
+      ratingPoints = (avgRating / 5) * 100 * 0.2;
+      breakdown.rating = { avgRating: avgRating.toFixed(1), points: ratingPoints.toFixed(1) };
+    } else {
+      // If no ratings, give a decent neutral score (70% of max rating points)
+      ratingPoints = 70 * 0.2; // 14 points instead of 0
+      breakdown.rating = { avgRating: 'N/A', points: ratingPoints.toFixed(1), note: 'neutral (no ratings)' };
     }
+    score += ratingPoints;
 
-    // Completeness (30% weight)
+    // Completeness (20% weight)
     let completeness = 0;
     if (option.outboundTransport) completeness += 0.4;
     if (option.returnTransport) completeness += 0.3;
     if (option.accommodation) completeness += 0.3;
-    score += completeness * 100 * 0.3;
+    const completenessPoints = completeness * 100 * 0.2;
+    score += completenessPoints;
+    breakdown.completeness = { score: (completeness * 100).toFixed(1), points: completenessPoints.toFixed(1) };
+
+    if (debug) {
+      console.log(`      Score breakdown:`, breakdown, `Total: ${score.toFixed(1)}`);
+    }
 
     return Math.round(score * 10) / 10;
   }
@@ -791,16 +900,25 @@ export class PlannerModel {
     const recommendedPlans: TripOption[] = [];
     let optionCounter = 0;
 
-    // Generate top combinations
-    const maxOutbound = Math.min(outboundTransportation.length, 3);
-    const maxReturn = Math.min(returnTransportation.length, 2);
+    // IMPORTANT: Sort transportation by price to ensure cheapest options are included
+    // The query sorts by departureTime first, but we want price priority for plan generation
+    const sortedOutbound = [...outboundTransportation].sort((a, b) => a.pricePerSeat - b.pricePerSeat);
+    const sortedReturn = [...returnTransportation].sort((a, b) => a.pricePerSeat - b.pricePerSeat);
+    
+    console.log(`   🎯 Using top rides by price for plan generation:`);
+    console.log(`      Outbound: ${sortedOutbound.slice(0, 3).map(t => `${t.vehicleType}@${t.pricePerSeat}`).join(', ')}`);
+    console.log(`      Return: ${sortedReturn.slice(0, 2).map(t => `${t.vehicleType}@${t.pricePerSeat}`).join(', ')}`);
+
+    // Generate top combinations - use PRICE-SORTED lists
+    const maxOutbound = Math.min(sortedOutbound.length, 5); // Increased from 3 to 5 for more variety
+    const maxReturn = Math.min(sortedReturn.length, 3); // Increased from 2 to 3
     const maxAccommodation = Math.min(accommodations.length, 3);
 
     for (let i = 0; i < maxOutbound || i === 0; i++) {
       for (let j = 0; j < maxReturn || j === 0; j++) {
         for (let k = 0; k < maxAccommodation || k === 0; k++) {
-          const outbound = outboundTransportation[i] || null;
-          const returnTrip = returnTransportation[j] || null;
+          const outbound = sortedOutbound[i] || null;
+          const returnTrip = sortedReturn[j] || null;
           const accommodation = accommodations[k] || null;
 
           const transportCost = (outbound?.totalCost || 0) + (returnTrip?.totalCost || 0);
@@ -840,8 +958,96 @@ export class PlannerModel {
       }
     }
 
+    // CRITICAL: Apply relative pricing bonus
+    // If multiple plans have the same accommodation, give significant bonus to cheaper transport
+    if (recommendedPlans.length > 1) {
+      console.log(`\n   🔧 Applying relative pricing bonus to ${recommendedPlans.length} plans...`);
+      
+      // Group plans by accommodation
+      const plansByAccommodation = new Map<number | null, typeof recommendedPlans>();
+      
+      recommendedPlans.forEach(plan => {
+        const accId = plan.accommodation?.id || null;
+        if (!plansByAccommodation.has(accId)) {
+          plansByAccommodation.set(accId, []);
+        }
+        plansByAccommodation.get(accId)!.push(plan);
+      });
+
+      console.log(`   📦 Grouped into ${plansByAccommodation.size} accommodation groups`);
+
+      // For each accommodation group, apply transport cost bonus
+      plansByAccommodation.forEach((plans, accId) => {
+        if (plans.length < 2) {
+          console.log(`   ⊘ Group ${accId || 'no-accommodation'}: Only 1 plan, skipping bonus`);
+          return;
+        }
+        
+        console.log(`   \n   🏨 Group ${accId || 'no-accommodation'} (${plans.length} plans):`);
+        
+        // Find cheapest and most expensive transport in this group
+        const transportCosts = plans.map(p => p.costs.transportation);
+        const minTransport = Math.min(...transportCosts);
+        const maxTransport = Math.max(...transportCosts);
+        
+        console.log(`      Transport range: ${minTransport} - ${maxTransport} PKR`);
+        
+        // Skip if all transports cost the same
+        if (minTransport === maxTransport) {
+          console.log(`      ⊘ All plans have same transport cost, skipping bonus`);
+          return;
+        }
+        
+        // Apply bonus points based on how much cheaper the transport is
+        plans.forEach(plan => {
+          const oldScore = plan.optimizationScore;
+          const savings = maxTransport - plan.costs.transportation;
+          const savingsRatio = savings / maxTransport;
+          
+          // Give up to 15 bonus points for having cheaper transport (within same accommodation)
+          const bonus = savingsRatio * 15;
+          plan.optimizationScore += bonus;
+          
+          console.log(`      - ${plan.planName.substring(0, 50)}...`);
+          console.log(`        Transport: ${plan.costs.transportation} PKR, Savings: ${savings} PKR (${(savingsRatio * 100).toFixed(1)}%)`);
+          console.log(`        Score: ${oldScore.toFixed(1)} + ${bonus.toFixed(1)} bonus = ${plan.optimizationScore.toFixed(1)}`);
+        });
+      });
+    }
+
     // Sort by optimization score
     recommendedPlans.sort((a, b) => b.optimizationScore - a.optimizationScore);
+
+    // IMPORTANT: If multiple plans have similar scores (within 5 points), prioritize by lowest total cost
+    // This ensures that cheaper options win when quality is similar
+    for (let i = 0; i < recommendedPlans.length - 1; i++) {
+      const current = recommendedPlans[i];
+      const next = recommendedPlans[i + 1];
+      
+      if (Math.abs(current.optimizationScore - next.optimizationScore) <= 5) {
+        // Scores are very similar, check if next plan is significantly cheaper
+        if (next.costs.total < current.costs.total * 0.5) { // Next is 50%+ cheaper
+          // Swap them - cheaper should win
+          [recommendedPlans[i], recommendedPlans[i + 1]] = [recommendedPlans[i + 1], recommendedPlans[i]];
+        }
+      }
+    }
+
+    // Debug: Show top 3 plans with score breakdown
+    console.log(`\n   📊 Generated ${recommendedPlans.length} trip plans. Top 3:`);
+    recommendedPlans.slice(0, 3).forEach((plan, idx) => {
+      console.log(`   ${idx + 1}. ${plan.planName} - Score: ${plan.optimizationScore}`);
+      console.log(`      💰 Total cost: ${plan.costs.total.toLocaleString()} PKR (${((plan.costs.total / budget) * 100).toFixed(1)}% of budget)`);
+      if (plan.outboundTransport) {
+        console.log(`      🚗 Outbound: ${plan.outboundTransport.vehicleType} @ ${plan.outboundTransport.pricePerSeat} PKR/seat (Rating: ${plan.outboundTransport.avgRating || 'N/A'})`);
+      }
+      if (plan.returnTransport) {
+        console.log(`      🔙 Return: ${plan.returnTransport.vehicleType} @ ${plan.returnTransport.pricePerSeat} PKR/seat (Rating: ${plan.returnTransport.avgRating || 'N/A'})`);
+      }
+      if (plan.accommodation) {
+        console.log(`      🏨 Stay: ${plan.accommodation.name} @ ${plan.accommodation.totalCost.toLocaleString()} PKR (Rating: ${plan.accommodation.avgRating || 'N/A'})`);
+      }
+    });
 
     // Mark the best option as optimal
     if (recommendedPlans.length > 0) {
