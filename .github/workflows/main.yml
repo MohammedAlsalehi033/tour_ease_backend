@@ -40,7 +40,6 @@ jobs:
           # cp -R prisma deployment-package/prisma
 
       - name: Upload artifact
-        # ⬇️ UPDATED THIS LINE
         uses: actions/upload-artifact@v4
         with:
           name: app-build
@@ -49,7 +48,7 @@ jobs:
   # -----------------------------------------------
   # Step 2: Deploy the built code to EC2
   # -----------------------------------------------
- deploy:
+  deploy:
     needs: build
     runs-on: ubuntu-latest
     
@@ -80,11 +79,9 @@ jobs:
           set -e
           
           echo "� Fixing broken apt repository..."
-          # ⬇️⬇️ THIS IS THE NEW LINE TO FIX THE ERROR ⬇️⬇️
           sudo rm -f /etc/apt/sources.list.d/jenkins.list
           
           echo "� Ensuring unzip is installed..."
-          # This will now work
           sudo apt-get update -y
           sudo apt-get install -y unzip
           
