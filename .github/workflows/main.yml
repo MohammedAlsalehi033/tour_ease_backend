@@ -49,7 +49,7 @@ jobs:
   # -----------------------------------------------
   # Step 2: Deploy the built code to EC2
   # -----------------------------------------------
-  deploy:
+ deploy:
     needs: build
     runs-on: ubuntu-latest
     
@@ -79,18 +79,20 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
           set -e
           
-          # ⬇️⬇️ ADD THIS BLOCK TO INSTALL UNZIP ⬇️⬇️
+          echo "� Fixing broken apt repository..."
+          # ⬇️⬇️ THIS IS THE NEW LINE TO FIX THE ERROR ⬇️⬇️
+          sudo rm -f /etc/apt/sources.list.d/jenkins.list
+          
           echo "� Ensuring unzip is installed..."
+          # This will now work
           sudo apt-get update -y
           sudo apt-get install -y unzip
-          # ⬆️⬆️ END OF NEW BLOCK ⬆️⬆️
-
+          
           echo "� Setting up project directory: ~/tourEaseBackEnd"
           mkdir -p ~/tourEaseBackEnd
           cd ~/tourEaseBackEnd
           
           echo "� Unzipping new build..."
-          # This command will now work
           unzip -o ~/app-build.zip -d .
           
           # If you use Prisma, uncomment this:
@@ -106,6 +108,5 @@ jobs:
           rm ~/app-build.zip
           
           echo "✅ Deployment procedure complete!"
-          echo "� Current PM2 status:"
           pm2 list
           EOF
