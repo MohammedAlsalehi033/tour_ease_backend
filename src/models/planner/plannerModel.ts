@@ -40,9 +40,17 @@ export class PlannerModel {
       timeWindowEnd.setDate(timeWindowEnd.getDate() + 1);
     }
 
+    // Extract the main city name from location strings
+    // "Islamabad, Pakistan" -> "Islamabad"
+    // "Lahore City, Pakistan" -> "Lahore" (remove "City" suffix)
+    const cleanStartCity = startLocation.split(',')[0].trim().replace(/\s+City$/i, '').trim();
+    const cleanEndCity = endLocation.split(',')[0].trim().replace(/\s+City$/i, '').trim();
+
+    console.log(`   🔍 Searching rides: ${cleanStartCity} → ${cleanEndCity}`);
+    
     // Build where clause - use coordinates if provided for more precise matching
     const whereClause: any = {
-      endLocationText: { contains: endLocation, mode: 'insensitive' },
+      endLocationText: { contains: cleanEndCity, mode: 'insensitive' },
       departureTime: { 
         gte: timeWindowStart, 
         lte: timeWindowEnd 
@@ -66,7 +74,7 @@ export class PlannerModel {
       
       console.log(`   🎯 Searching for rides near coordinates: ${detailedStartLocation.lat}, ${detailedStartLocation.lng}`);
     } else {
-      whereClause.startLocationText = { contains: startLocation, mode: 'insensitive' };
+      whereClause.startLocationText = { contains: cleanStartCity, mode: 'insensitive' };
     }
 
     const listings = await prisma.transportationListing.findMany({
@@ -84,6 +92,47 @@ export class PlannerModel {
         { pricePerSeat: 'asc' }
       ]
     });
+
+    console.log(`   📊 Found ${listings.length} matching rides`);
+    if (listings.length === 0) {
+      // Debug: Show what we were searching for
+      console.log(`   ⚠️  No rides found with criteria:`, {
+        startCity: cleanStartCity,
+        endCity: cleanEndCity,
+        departureWindow: `${timeWindowStart.toISOString()} - ${timeWindowEnd.toISOString()}`,
+        maxBudgetPerSeat,
+        seatsNeeded,
+        hasCoordinates: !!detailedStartLocation
+      });
+      
+      // Debug: Try to find ANY rides between these cities (without time/budget constraints)
+      const debugListings = await prisma.transportationListing.findMany({
+        where: {
+          startLocationText: { contains: cleanStartCity, mode: 'insensitive' },
+          endLocationText: { contains: cleanEndCity, mode: 'insensitive' },
+          status: 'active'
+        },
+        select: {
+          id: true,
+          startLocationText: true,
+          endLocationText: true,
+          departureTime: true,
+          pricePerSeat: true,
+          seatsAvailable: true
+        },
+        take: 3
+      });
+      
+      if (debugListings.length > 0) {
+        console.log(`   ℹ️  But found ${debugListings.length} rides without time/budget constraints:`);
+        debugListings.forEach(listing => {
+          console.log(`      - ID ${listing.id}: ${listing.startLocationText} → ${listing.endLocationText}`);
+          console.log(`        Departs: ${listing.departureTime}, Price: ${listing.pricePerSeat}, Seats: ${listing.seatsAvailable}`);
+        });
+      } else {
+        console.log(`   ℹ️  No rides found at all between "${cleanStartCity}" and "${cleanEndCity}"`);
+      }
+    }
 
     // Fetch provider reviews for all providers
     const providerIds = [...new Set(listings.map(l => l.providerId))];
