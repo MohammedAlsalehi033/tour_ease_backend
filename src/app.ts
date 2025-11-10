@@ -21,6 +21,7 @@ const accommodationProviderRoutes = require('./routes/accommodationProvider/acco
 const accommodationRoutes = require('./routes/accommodation/accommodationRoutes');
 const roomRoutes = require('./routes/room/roomRoutes');
 const accommodationBookingRoutes = require('./routes/accommodationBooking/accommodationBookingRoutes');
+const paymentRoutes = require('./routes/payment/paymentRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
 
@@ -92,7 +93,9 @@ io.on('connection', (socket) => {
 });
 
 app.use(cors());
-app.use(express.json());
+// Increase JSON/body parser limits to allow larger registration payloads (images should still be uploaded to S3)
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -114,6 +117,7 @@ app.use('/api/accommodation-providers', accommodationProviderRoutes);
 app.use('/api/accommodations', accommodationRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/accommodation-bookings', accommodationBookingRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api', uploadRoutes); // Upload endpoint for S3
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
@@ -136,12 +140,23 @@ app.get('/', (req, res) => {
 
 
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
+// Central error handler - includes friendly handling for payload-too-large errors
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('Express error handler:', err && err.stack ? err.stack : err);
+
+  // Body parser / payload too large
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    return res.status(413).json({
+      success: false,
+      message:
+        'Request payload too large. Try uploading fewer or smaller images, or upload media to S3 first and send the URLs.'
+    });
+  }
+
   res.status(500).json({
     success: false,
     message: 'Something went wrong!',
-    errorMessage: err.stack
+    errorMessage: err && err.message ? err.message : err
   });
 });
 

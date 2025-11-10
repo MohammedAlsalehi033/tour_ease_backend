@@ -250,8 +250,10 @@ export default class AccommodationModel {
       });
 
       // Transform all accommodations with S3 URLs
-      const transformedAccommodations = accommodationsWithRatings.map((acc) => 
-        this.transformAccommodationWithS3Urls(acc)
+      const transformedAccommodations = await Promise.all(
+        accommodationsWithRatings.map((acc) => 
+          this.transformAccommodationWithS3Urls(acc)
+        )
       );
 
       const totalPages = Math.ceil(total / pageSize);
