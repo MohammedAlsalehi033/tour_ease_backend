@@ -26,7 +26,8 @@ export class PlannerModel {
     departureDate: Date,
     seatsNeeded: number,
     maxBudgetPerSeat: number,
-    isReturnTrip: boolean = false
+    isReturnTrip: boolean = false,
+    detailedStartLocation?: { lat: number; lng: number }
   ): Promise<TransportationOption[]> {
     const timeWindowStart = new Date(departureDate);
     const timeWindowEnd = new Date(departureDate);
@@ -39,18 +40,37 @@ export class PlannerModel {
       timeWindowEnd.setDate(timeWindowEnd.getDate() + 1);
     }
 
-    const listings = await prisma.transportationListing.findMany({
-      where: {
-        startLocationText: { contains: startLocation, mode: 'insensitive' },
-        endLocationText: { contains: endLocation, mode: 'insensitive' },
-        departureTime: { 
-          gte: timeWindowStart, 
-          lte: timeWindowEnd 
-        },
-        pricePerSeat: { lte: maxBudgetPerSeat },
-        seatsAvailable: { gte: seatsNeeded },
-        status: 'active'
+    // Build where clause - use coordinates if provided for more precise matching
+    const whereClause: any = {
+      endLocationText: { contains: endLocation, mode: 'insensitive' },
+      departureTime: { 
+        gte: timeWindowStart, 
+        lte: timeWindowEnd 
       },
+      pricePerSeat: { lte: maxBudgetPerSeat },
+      seatsAvailable: { gte: seatsNeeded },
+      status: 'active'
+    };
+
+    // If detailed coordinates are provided, use them for proximity search
+    // Otherwise fall back to text-based search
+    if (detailedStartLocation && !isReturnTrip) {
+      // Search for rides within ~5km radius (approximately 0.045 degrees)
+      const latRange = 0.045;
+      const lngRange = 0.045;
+      
+      whereClause.AND = [
+        { startLocationLat: { gte: detailedStartLocation.lat - latRange, lte: detailedStartLocation.lat + latRange } },
+        { startLocationLng: { gte: detailedStartLocation.lng - lngRange, lte: detailedStartLocation.lng + lngRange } }
+      ];
+      
+      console.log(`   🎯 Searching for rides near coordinates: ${detailedStartLocation.lat}, ${detailedStartLocation.lng}`);
+    } else {
+      whereClause.startLocationText = { contains: startLocation, mode: 'insensitive' };
+    }
+
+    const listings = await prisma.transportationListing.findMany({
+      where: whereClause,
       include: {
         provider: {
           include: {
@@ -663,7 +683,8 @@ export class PlannerModel {
       interests,
       budget,
       numberOfTravelers,
-      needsReturnTransport = true
+      needsReturnTransport = true,
+      detailedStartLocation
     } = request;
 
     const startDate = new Date(startTime);
@@ -694,7 +715,8 @@ export class PlannerModel {
         startDate,
         numberOfTravelers,
         maxBudgetPerSeat,
-        false
+        false,
+        detailedStartLocation // Pass coordinates for outbound trip
       ),
       needsReturnTransport
         ? this.findAvailableTransportation(

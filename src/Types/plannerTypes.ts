@@ -250,4 +250,5 @@ export interface PlanGenerationRequest {
   budget: number;
   numberOfTravelers: number;
   needsReturnTransport?: boolean;
+  detailedStartLocation?: { lat: number; lng: number }; // Optional specific coordinates for better ride matching
 }
