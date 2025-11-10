@@ -783,7 +783,8 @@ export class PlannerModel {
       startDate,
       endDate,
       interests,
-      numberOfTravelers
+      numberOfTravelers,
+      activities // Pass AI-generated activities
     );
 
     // Calculate trip summary
@@ -903,10 +904,13 @@ export class PlannerModel {
     startDate: Date,
     endDate: Date,
     interests: string[],
-    numberOfTravelers: number
+    numberOfTravelers: number,
+    aiActivities: ActivityOption[] = []
   ): Promise<DayItinerary[]> {
     const itinerary: DayItinerary[] = [];
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log(`📅 Generating ${totalDays}-day itinerary with ${aiActivities.length} AI activities`);
 
     // Clean destination - "Lahore City, Pakistan" -> "lahore"
     const cleanDest = destination.split(',')[0].trim().replace(/\s+City$/i, '').trim().toLowerCase();
@@ -957,10 +961,40 @@ export class PlannerModel {
     const destinationKey = cleanDest;
     const locations = locationDatabase[destinationKey] || [];
     
-    // Track used locations to avoid repetition
+    // Track used AI activities to ensure unique activities per day
+    const usedActivityIndices = new Set<number>();
+    
+    // Helper to get next unused AI activity
+    const getNextActivity = (preferredTags: string[] = []): ActivityOption | null => {
+      // First try to find activity matching preferred tags
+      for (let i = 0; i < aiActivities.length; i++) {
+        if (usedActivityIndices.has(i)) continue;
+        
+        const activity = aiActivities[i];
+        const hasPreferredTag = preferredTags.length === 0 || 
+          preferredTags.some(tag => activity.tags?.includes(tag));
+        
+        if (hasPreferredTag) {
+          usedActivityIndices.add(i);
+          return activity;
+        }
+      }
+      
+      // If no match, get any unused activity
+      for (let i = 0; i < aiActivities.length; i++) {
+        if (!usedActivityIndices.has(i)) {
+          usedActivityIndices.add(i);
+          return aiActivities[i];
+        }
+      }
+      
+      return null; // All activities used
+    };
+    
+    // Track used hardcoded locations as fallback
     const usedLocationIndices = new Set<number>();
     
-    // Helper to get next unused location
+    // Helper to get next unused location (fallback when AI activities run out)
     const getNextUnusedLocation = (): LocationDetails | null => {
       for (let i = 0; i < locations.length; i++) {
         if (!usedLocationIndices.has(i)) {
@@ -1000,29 +1034,43 @@ export class PlannerModel {
           tips: 'Keep your ID and booking confirmation ready'
         });
         
-        const lunchLoc = getNextUnusedLocation();
         activities.push({
           time: '02:00 PM',
           duration: 90,
           type: 'lunch',
           title: 'Welcome Lunch',
-          description: lunchLoc ? getLocationDescription(lunchLoc.name) : 'Try local cuisine at a popular restaurant',
-          location: lunchLoc || { name: 'Local Restaurant', address: destination },
+          description: 'Try local cuisine at a popular restaurant',
+          location: { name: 'Local Restaurant', address: destination },
           estimatedCost: 1500 * numberOfTravelers,
           tips: 'Try the local specialties!'
         });
 
-        const eveningLoc = getNextUnusedLocation();
-        activities.push({
-          time: '04:00 PM',
-          duration: 120,
-          type: 'attraction',
-          title: 'City Orientation Walk',
-          description: eveningLoc ? getLocationDescription(eveningLoc.name) : 'Light evening walk to explore nearby area',
-          location: eveningLoc || { name: 'City Center', address: destination },
-          estimatedCost: 500 * numberOfTravelers,
-          tips: 'Great time for photos in evening light'
-        });
+        // Evening activity - prefer AI-generated, fallback to hardcoded
+        const eveningActivity = getNextActivity(['sightseeing', 'culture', 'food']);
+        if (eveningActivity) {
+          activities.push({
+            time: '04:00 PM',
+            duration: 120,
+            type: 'attraction',
+            title: eveningActivity.title,
+            description: eveningActivity.description || `Light evening activity to explore ${eveningActivity.title}`,
+            location: { name: eveningActivity.title, address: destination },
+            estimatedCost: eveningActivity.estimatedCost || (500 * numberOfTravelers),
+            tips: 'Great time for photos in evening light'
+          });
+        } else {
+          const eveningLoc = getNextUnusedLocation();
+          activities.push({
+            time: '04:00 PM',
+            duration: 120,
+            type: 'attraction',
+            title: 'City Orientation Walk',
+            description: eveningLoc ? getLocationDescription(eveningLoc.name) : 'Light evening walk to explore nearby area',
+            location: eveningLoc || { name: 'City Center', address: destination },
+            estimatedCost: 500 * numberOfTravelers,
+            tips: 'Great time for photos in evening light'
+          });
+        }
 
       } else if (day === totalDays - 1) {
         // Last day - Departure
@@ -1036,17 +1084,32 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
-        const shoppingLoc = getNextUnusedLocation();
-        activities.push({
-          time: '10:00 AM',
-          duration: 90,
-          type: 'shopping',
-          title: 'Last-minute Shopping',
-          description: 'Pick up souvenirs and local products',
-          location: shoppingLoc || { name: 'Shopping Area', address: destination },
-          estimatedCost: 2000 * numberOfTravelers,
-          tips: 'Bargaining is common in local markets'
-        });
+        // Last-minute activity - prefer shopping/market AI activities
+        const shoppingActivity = getNextActivity(['shopping', 'market', 'souvenir']);
+        if (shoppingActivity) {
+          activities.push({
+            time: '10:00 AM',
+            duration: 90,
+            type: 'shopping',
+            title: shoppingActivity.title,
+            description: shoppingActivity.description || 'Pick up souvenirs and local products',
+            location: { name: shoppingActivity.title, address: destination },
+            estimatedCost: shoppingActivity.estimatedCost || (2000 * numberOfTravelers),
+            tips: 'Bargaining is common in local markets'
+          });
+        } else {
+          const shoppingLoc = getNextUnusedLocation();
+          activities.push({
+            time: '10:00 AM',
+            duration: 90,
+            type: 'shopping',
+            title: 'Last-minute Shopping',
+            description: 'Pick up souvenirs and local products',
+            location: shoppingLoc || { name: 'Shopping Area', address: destination },
+            estimatedCost: 2000 * numberOfTravelers,
+            tips: 'Bargaining is common in local markets'
+          });
+        }
 
         activities.push({
           time: '12:00 PM',
@@ -1059,7 +1122,7 @@ export class PlannerModel {
         });
 
       } else {
-        // Regular days
+        // Regular days - Use AI-generated activities
         activities.push({
           time: '08:00 AM',
           duration: 60,
@@ -1070,45 +1133,78 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
-        // Morning activity - get unique location
-        const morningLoc = getNextUnusedLocation();
-        activities.push({
-          time: '10:00 AM',
-          duration: 150,
-          type: 'attraction',
-          title: `Visit ${morningLoc?.name || 'Local Attraction'}`,
-          description: (morningLoc && morningLoc.name) ? getLocationDescription(morningLoc.name) : `Explore the ${morningLoc?.name || 'attraction'} and learn about its history`,
-          location: morningLoc || { name: 'Attraction', address: destination },
-          estimatedCost: 500 * numberOfTravelers,
-          bookingRequired: false,
-          mapUrl: morningLoc?.googleMapsUrl
-        });
+        // Morning activity - get unique AI activity or fallback to location
+        const morningActivity = getNextActivity(['culture', 'history', 'sightseeing', 'museum']);
+        if (morningActivity) {
+          activities.push({
+            time: '10:00 AM',
+            duration: 150,
+            type: 'attraction',
+            title: morningActivity.title,
+            description: morningActivity.description || `Explore ${morningActivity.title} and learn about its significance`,
+            location: { name: morningActivity.title, address: destination },
+            estimatedCost: morningActivity.estimatedCost || (500 * numberOfTravelers),
+            bookingRequired: false
+          });
+        } else {
+          // Fallback to hardcoded location if no AI activities left
+          const morningLoc = getNextUnusedLocation();
+          activities.push({
+            time: '10:00 AM',
+            duration: 150,
+            type: 'attraction',
+            title: `Visit ${morningLoc?.name || 'Local Attraction'}`,
+            description: (morningLoc && morningLoc.name) ? getLocationDescription(morningLoc.name) : `Explore the ${morningLoc?.name || 'attraction'} and learn about its history`,
+            location: morningLoc || { name: 'Attraction', address: destination },
+            estimatedCost: 500 * numberOfTravelers,
+            bookingRequired: false,
+            mapUrl: morningLoc?.googleMapsUrl
+          });
+        }
 
-        // Lunch at a unique location
-        const lunchLoc = getNextUnusedLocation();
+        // Lunch
         activities.push({
           time: '01:00 PM',
           duration: 90,
           type: 'lunch',
           title: 'Lunch',
           description: 'Enjoy traditional local cuisine with authentic flavors and regional specialties',
-          location: lunchLoc || { name: 'Restaurant', address: destination },
+          location: { name: 'Local Restaurant', address: destination },
           estimatedCost: 2000 * numberOfTravelers,
           tips: 'Try the chef\'s special!'
         });
 
-        // Afternoon activity - get unique location
-        const afternoonLoc = getNextUnusedLocation();
-        activities.push({
-          time: '03:00 PM',
-          duration: 180,
-          type: interests.includes('shopping') ? 'shopping' : 'activity',
-          title: `${afternoonLoc?.name || 'Afternoon Activity'}`,
-          description: (afternoonLoc && afternoonLoc.name) ? getLocationDescription(afternoonLoc.name) : `Experience ${afternoonLoc?.name || 'the local culture'}`,
-          location: afternoonLoc || { name: 'Activity Location', address: destination },
-          estimatedCost: 1500 * numberOfTravelers,
-          mapUrl: afternoonLoc?.googleMapsUrl
-        });
+        // Afternoon activity - get unique AI activity or fallback
+        const afternoonActivity = getNextActivity(
+          interests.includes('shopping') ? ['shopping', 'market'] : 
+          interests.includes('nature') ? ['nature', 'outdoor', 'adventure'] :
+          ['activity', 'entertainment', 'experience']
+        );
+        
+        if (afternoonActivity) {
+          activities.push({
+            time: '03:00 PM',
+            duration: 180,
+            type: interests.includes('shopping') ? 'shopping' : 'activity',
+            title: afternoonActivity.title,
+            description: afternoonActivity.description || `Experience ${afternoonActivity.title}`,
+            location: { name: afternoonActivity.title, address: destination },
+            estimatedCost: afternoonActivity.estimatedCost || (1500 * numberOfTravelers)
+          });
+        } else {
+          // Fallback to hardcoded location
+          const afternoonLoc = getNextUnusedLocation();
+          activities.push({
+            time: '03:00 PM',
+            duration: 180,
+            type: interests.includes('shopping') ? 'shopping' : 'activity',
+            title: `${afternoonLoc?.name || 'Afternoon Activity'}`,
+            description: (afternoonLoc && afternoonLoc.name) ? getLocationDescription(afternoonLoc.name) : `Experience ${afternoonLoc?.name || 'the local culture'}`,
+            location: afternoonLoc || { name: 'Activity Location', address: destination },
+            estimatedCost: 1500 * numberOfTravelers,
+            mapUrl: afternoonLoc?.googleMapsUrl
+          });
+        }
 
         activities.push({
           time: '07:00 PM',
