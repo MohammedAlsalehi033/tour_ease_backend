@@ -15,17 +15,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      # Set up the *correct* Node.js version to build with
       - name: Use Node.js 20
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm' # This speeds up node_modules caching
+          cache: 'npm' 
 
       - name: Install dependencies
         run: npm install
 
-      # If you use Prisma, uncomment the following line:
       # - name: Generate Prisma Client
       #   run: npx prisma generate
 
@@ -33,19 +31,17 @@ jobs:
         run: npm run build
 
       - name: Create deployment package
-        # We zip up only the files needed to *run* the app
         run: |
           mkdir deployment-package
           cp -R dist deployment-package/dist
           cp -R node_modules deployment-package/node_modules
           cp package.json deployment-package/package.json
-          # If you have a .env file, you can't include it here
           # If you have Prisma migrations, add them too:
           # cp -R prisma deployment-package/prisma
 
       - name: Upload artifact
-        # This makes the "deployment-package" available to other jobs
-        uses: actions/upload-artifact@v3
+        # ⬇️ UPDATED THIS LINE
+        uses: actions/upload-artifact@v4
         with:
           name: app-build
           path: deployment-package
@@ -54,14 +50,13 @@ jobs:
   # Step 2: Deploy the built code to EC2
   # -----------------------------------------------
   deploy:
-    # This job 'needs' the build job to finish first
     needs: build
     runs-on: ubuntu-latest
     
     steps:
       - name: Download artifact
-        # Get the "deployment-package" we made in the build job
-        uses: actions/download-artifact@v3
+        # ⬇️ UPDATED THIS LINE
+        uses: actions/download-artifact@v4
         with:
           name: app-build
 
@@ -77,24 +72,19 @@ jobs:
         run: |
           echo "⚡ Starting deployment to EC2..."
           
-          # Setup SSH key
           echo -e "$EC2_KEY" > deploy_key.pem
           chmod 600 deploy_key.pem
           
-          # 1. Copy the ZIP file to the server
           scp -o StrictHostKeyChecking=no -i deploy_key.pem app-build.zip $EC2_USER@$EC2_HOST:~/app-build.zip
           
-          # 2. SSH in and run the commands
           ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
           set -e
           
           echo "� Setting up project directory: ~/tourEaseBackEnd"
-          # Create directory if it doesn't exist, and navigate into it
           mkdir -p ~/tourEaseBackEnd
           cd ~/tourEaseBackEnd
           
           echo "� Unzipping new build..."
-          # Unzip the new code, overwriting the old files
           unzip -o ~/app-build.zip -d .
           
           # If you use Prisma, uncomment this:
