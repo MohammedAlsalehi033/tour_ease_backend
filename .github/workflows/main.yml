@@ -1,55 +1,109 @@
 name: Node.js CI/CD Pipeline
+
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+
 jobs:
-  build-and-deploy:
+  # -----------------------------------------------
+  # Step 1: Build the app on GitHub's machine
+  # -----------------------------------------------
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      
+      - name: Use Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm' 
+
+      - name: Install dependencies
+        run: npm install
+
+      # - name: Generate Prisma Client
+      #   run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create deployment package
+        run: |
+          mkdir deployment-package
+          cp -R dist deployment-package/dist
+          cp -R node_modules deployment-package/node_modules
+          cp package.json deployment-package/package.json
+          # If you have Prisma migrations, add them too:
+          # cp -R prisma deployment-package/prisma
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: deployment-package
+
+  # -----------------------------------------------
+  # Step 2: Deploy the built code to EC2
+  # -----------------------------------------------
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+
+      - name: Zip the package for transfer
+        run: zip -r app-build.zip .
+
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_KEY: ${{ secrets.EC2_KEY }}
           APP_NAME: "tour-ease-backend"
-          NODE_ENV: "production"
         run: |
           echo "⚡ Starting deployment to EC2..."
           
-          # Setup SSH key
           echo -e "$EC2_KEY" > deploy_key.pem
           chmod 600 deploy_key.pem
           
-          # Deployment commands
+          scp -o StrictHostKeyChecking=no -i deploy_key.pem app-build.zip $EC2_USER@$EC2_HOST:~/app-build.zip
+          
           ssh -o StrictHostKeyChecking=no -i deploy_key.pem $EC2_USER@$EC2_HOST << 'EOF'
           set -e
-          echo "📂 Navigating to project directory..."
-          cd ~/tourEaseBackEnd || { echo "❌ Project directory not found"; exit 1; }
           
-          echo "🔄 Syncing with GitHub..."
-          gh repo sync --force
+          echo "� Fixing broken apt repository..."
+          sudo rm -f /etc/apt/sources.list.d/jenkins.list
           
-          echo "📦 Installing dependencies..."
-          npm install 
+          echo "� Ensuring unzip is installed..."
+          sudo apt-get update -y
+          sudo apt-get install -y unzip
           
-          echo "🏗️ Building application..."
-          # Continue even if build fails (but log the error)
-          if ! npm run build; then
-            echo "⚠️ Build complete with errors - proceeding with existing build"
-            # You might want to add notification here (Slack/Email)
-          fi
+          echo "� Setting up project directory: ~/tourEaseBackEnd"
+          mkdir -p ~/tourEaseBackEnd
+          cd ~/tourEaseBackEnd
           
-          echo "🔄 Restarting PM2 process with ID 0..."
-          pm2 restart 0 --update-env || {
-            echo "❌ Failed to restart PM2 process with ID 0. Starting the application..."
-            pm2 start npm --name "$APP_NAME" -- run start
-          }
+          echo "� Unzipping new build..."
+          unzip -o ~/app-build.zip -d .
+          
+          # If you use Prisma, uncomment this:
+          # echo "Applying database migrations..."
+          # npx prisma migrate deploy
+
+          echo "� Reloading PM2 process: $APP_NAME..."
+          pm2 reload $APP_NAME --update-env || pm2 start npm --name "$APP_NAME" -- run start
           
           pm2 save
+          
+          echo "� Cleaning up zip file..."
+          rm ~/app-build.zip
+          
           echo "✅ Deployment procedure complete!"
-          echo "📊 Current PM2 status:"
           pm2 list
           EOF

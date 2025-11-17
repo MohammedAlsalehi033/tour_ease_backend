@@ -30,7 +30,8 @@ export const generatePlan = async (req: Request, res: Response) => {
       useAIOptimization = false,
       maxIterations = 3,
       preferredTransportMode = 'Any',
-      specialRequirements
+      specialRequirements,
+      detailedStartLocation // Optional specific starting location for better ride matching
     } = req.body;
 
     // Validation
@@ -95,7 +96,8 @@ export const generatePlan = async (req: Request, res: Response) => {
       interests,
       budget,
       numberOfTravelers,
-      needsReturnTransport
+      needsReturnTransport,
+      detailedStartLocation: detailedStartLocation // Pass coordinates as-is
     };
 
     // Generate trip plans - use AI optimization if requested
@@ -285,6 +287,25 @@ export const confirmBooking = async (req: Request, res: Response) => {
       errors: []
     };
 
+    // Get accommodation details if provided (for outbound transport message)
+    let accommodationDetails: { name: string; location: string } | undefined;
+    if (accommodationId) {
+      try {
+        const accommodation = await prisma.accommodation.findUnique({
+          where: { id: accommodationId },
+          select: { name: true, location: true }
+        });
+        if (accommodation) {
+          accommodationDetails = {
+            name: accommodation.name,
+            location: accommodation.location
+          };
+        }
+      } catch (error) {
+        console.log('Could not fetch accommodation details for offer message');
+      }
+    }
+
     // Process transportation bookings
     if (outboundTransportId) {
       try {
@@ -292,7 +313,8 @@ export const confirmBooking = async (req: Request, res: Response) => {
           userId,
           outboundTransportId,
           seatsNeeded,
-          'outbound'
+          'outbound',
+          accommodationDetails
         );
         bookingResult.bookings.transportationBookings.outbound = outboundBooking;
         bookingResult.totalCost += outboundBooking.totalPrice;
@@ -377,7 +399,8 @@ async function processTransportationBooking(
   userId: string,
   listingId: number,
   seatsNeeded: number,
-  type: 'outbound' | 'return'
+  type: 'outbound' | 'return',
+  accommodationDetails?: { name: string; location: string }
 ) {
   // Get the listing to retrieve provider info and validate
   const listing = await prisma.transportationListing.findUnique({
@@ -395,6 +418,15 @@ async function processTransportationBooking(
 
   const totalPrice = Number(listing.pricePerSeat) * seatsNeeded;
 
+  // Build the message with accommodation info if available
+  let offerMessage = `Booking request for ${seatsNeeded} seat(s) - ${type} trip`;
+  if (type === 'outbound' && accommodationDetails) {
+    offerMessage += ` to ${accommodationDetails.name} at ${accommodationDetails.location}`;
+  } else if (type === 'outbound') {
+    offerMessage += `. Please contact user for destination details`;
+  }
+  offerMessage += ` (Requested via AI Travel Planner)`;
+
   // Use the existing OfferController to create the offer
   // This ensures all edge cases and notifications are handled properly
   const offerController = container.resolve(OfferController);
@@ -406,7 +438,7 @@ async function processTransportationBooking(
       recipientId: listing.providerId,
       pricePerSeat: listing.pricePerSeat,
       seatsRequested: seatsNeeded,
-      message: `Booking request for ${seatsNeeded} seat(s) - ${type} trip from planner`,
+      message: offerMessage,
       transportationListingId: listingId
     }
   };

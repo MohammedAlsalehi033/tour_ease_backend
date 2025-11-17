@@ -26,31 +26,66 @@ export class PlannerModel {
     departureDate: Date,
     seatsNeeded: number,
     maxBudgetPerSeat: number,
-    isReturnTrip: boolean = false
+    isReturnTrip: boolean = false,
+    detailedStartLocation?: { lat: number; lng: number }
   ): Promise<TransportationOption[]> {
     const timeWindowStart = new Date(departureDate);
+    // Set to start of day (00:00:00) to catch all rides on this day
+    timeWindowStart.setHours(0, 0, 0, 0);
+    
     const timeWindowEnd = new Date(departureDate);
     
-    // For outbound trips, search within same day and next 6 hours
-    // For return trips, search on the return date
+    // For outbound trips, search the entire departure day (until 23:59:59)
+    // For return trips, search the entire return date
     if (!isReturnTrip) {
-      timeWindowEnd.setHours(timeWindowEnd.getHours() + 6);
+      timeWindowEnd.setHours(23, 59, 59, 999);
     } else {
+      // For return trips, search the entire day plus some buffer for late returns
       timeWindowEnd.setDate(timeWindowEnd.getDate() + 1);
+      timeWindowEnd.setHours(23, 59, 59, 999);
+    }
+
+    // Extract the main city name from location strings
+    // "Islamabad, Pakistan" -> "Islamabad"
+    // "Lahore City, Pakistan" -> "Lahore" (remove "City" suffix)
+    const cleanStartCity = startLocation.split(',')[0].trim().replace(/\s+City$/i, '').trim();
+    const cleanEndCity = endLocation.split(',')[0].trim().replace(/\s+City$/i, '').trim();
+
+    console.log(`   🔍 Searching rides: ${cleanStartCity} → ${cleanEndCity}`);
+    console.log(`   📅 Time window: ${timeWindowStart.toISOString()} to ${timeWindowEnd.toISOString()}`);
+    console.log(`   💰 Max price per seat: ${maxBudgetPerSeat} PKR, Seats needed: ${seatsNeeded}`);
+    
+    // Build where clause - use coordinates if provided for more precise matching
+    const whereClause: any = {
+      endLocationText: { contains: cleanEndCity, mode: 'insensitive' },
+      departureTime: { 
+        gte: timeWindowStart, 
+        lte: timeWindowEnd 
+      },
+      pricePerSeat: { lte: maxBudgetPerSeat },
+      seatsAvailable: { gte: seatsNeeded },
+      status: 'active'
+    };
+
+    // If detailed coordinates are provided, use them for proximity search
+    // Otherwise fall back to text-based search
+    if (detailedStartLocation && !isReturnTrip) {
+      // Search for rides within ~5km radius (approximately 0.045 degrees)
+      const latRange = 0.045;
+      const lngRange = 0.045;
+      
+      whereClause.AND = [
+        { startLocationLat: { gte: detailedStartLocation.lat - latRange, lte: detailedStartLocation.lat + latRange } },
+        { startLocationLng: { gte: detailedStartLocation.lng - lngRange, lte: detailedStartLocation.lng + lngRange } }
+      ];
+      
+      console.log(`   🎯 Searching for rides near coordinates: ${detailedStartLocation.lat}, ${detailedStartLocation.lng}`);
+    } else {
+      whereClause.startLocationText = { contains: cleanStartCity, mode: 'insensitive' };
     }
 
     const listings = await prisma.transportationListing.findMany({
-      where: {
-        startLocationText: { contains: startLocation, mode: 'insensitive' },
-        endLocationText: { contains: endLocation, mode: 'insensitive' },
-        departureTime: { 
-          gte: timeWindowStart, 
-          lte: timeWindowEnd 
-        },
-        pricePerSeat: { lte: maxBudgetPerSeat },
-        seatsAvailable: { gte: seatsNeeded },
-        status: 'active'
-      },
+      where: whereClause,
       include: {
         provider: {
           include: {
@@ -64,6 +99,76 @@ export class PlannerModel {
         { pricePerSeat: 'asc' }
       ]
     });
+
+    console.log(`   📊 Found ${listings.length} matching rides`);
+    if (listings.length === 0) {
+      // Debug: Show what we were searching for
+      console.log(`   ⚠️  No rides found with criteria:`, {
+        startCity: cleanStartCity,
+        endCity: cleanEndCity,
+        departureWindow: `${timeWindowStart.toISOString()} - ${timeWindowEnd.toISOString()}`,
+        maxBudgetPerSeat,
+        seatsNeeded,
+        hasCoordinates: !!detailedStartLocation
+      });
+      
+      // Debug: Try to find ANY rides between these cities (without time/budget constraints)
+      const debugListings = await prisma.transportationListing.findMany({
+        where: {
+          startLocationText: { contains: cleanStartCity, mode: 'insensitive' },
+          endLocationText: { contains: cleanEndCity, mode: 'insensitive' },
+          status: 'active'
+        },
+        select: {
+          id: true,
+          startLocationText: true,
+          endLocationText: true,
+          departureTime: true,
+          pricePerSeat: true,
+          seatsAvailable: true,
+          providerId: true
+        },
+        take: 5
+      });
+      
+      if (debugListings.length > 0) {
+        console.log(`   ℹ️  But found ${debugListings.length} rides without time/budget constraints:`);
+        debugListings.forEach(listing => {
+          console.log(`      - Provider: ${listing.providerId}`);
+          console.log(`        Route: ${listing.startLocationText} → ${listing.endLocationText}`);
+          console.log(`        Departs: ${listing.departureTime.toISOString()}, Price: ${listing.pricePerSeat} PKR, Seats: ${listing.seatsAvailable}`);
+          
+          // Check why this ride was filtered out
+          const reasons: string[] = [];
+          if (listing.departureTime < timeWindowStart || listing.departureTime > timeWindowEnd) {
+            reasons.push(`❌ Time mismatch (ride at ${listing.departureTime.toISOString()}, window: ${timeWindowStart.toISOString()} - ${timeWindowEnd.toISOString()})`);
+          }
+          if (Number(listing.pricePerSeat) > maxBudgetPerSeat) {
+            reasons.push(`❌ Price too high (${listing.pricePerSeat} > ${maxBudgetPerSeat})`);
+          }
+          if (listing.seatsAvailable < seatsNeeded) {
+            reasons.push(`❌ Not enough seats (${listing.seatsAvailable} < ${seatsNeeded})`);
+          }
+          if (reasons.length > 0) {
+            console.log(`        Filtered because: ${reasons.join(', ')}`);
+          }
+        });
+      } else {
+        console.log(`   ℹ️  No rides found at all between "${cleanStartCity}" and "${cleanEndCity}"`);
+        console.log(`   💡 Tip: Check if location names in database match the search terms`);
+      }
+    } else {
+      // Show summary of found rides
+      console.log(`   ✅ Rides range: ${listings[0].departureTime.toISOString()} to ${listings[listings.length - 1].departureTime.toISOString()}`);
+      console.log(`   ✅ Price range: ${Math.min(...listings.map(l => Number(l.pricePerSeat)))} - ${Math.max(...listings.map(l => Number(l.pricePerSeat)))} PKR`);
+      
+      // Show top 5 cheapest rides
+      const sorted = [...listings].sort((a, b) => Number(a.pricePerSeat) - Number(b.pricePerSeat));
+      console.log(`   📋 Top 5 cheapest rides:`);
+      sorted.slice(0, 5).forEach((listing, idx) => {
+        console.log(`      ${idx + 1}. ${listing.provider.user.username} - ${listing.provider.vehicleType} @ ${listing.pricePerSeat} PKR/seat (${listing.seatsAvailable} seats)`);
+      });
+    }
 
     // Fetch provider reviews for all providers
     const providerIds = [...new Set(listings.map(l => l.providerId))];
@@ -358,21 +463,24 @@ export class PlannerModel {
    */
   static async findActivities(
     interests: string[],
-    location: string
+    location: string,
+    numberOfDays: number = 7
   ): Promise<ActivityOption[]> {
     if (!interests || interests.length === 0) {
       interests = ['sightseeing', 'culture', 'food'];
     }
 
     try {
-      // Use AI to generate activity suggestions
+      // Use AI to generate activity suggestions - generate more activities for variety
       const aiActivities = await AIPlannerAgent.generateActivitySuggestions(
         location,
         interests,
         [], // No existing activities from DB
-        7 // Generate activities for up to 7 days
+        Math.max(7, numberOfDays), // Generate activities for the trip duration
+        new Set() // No used activities yet for first generation
       );
 
+      console.log(`✅ Generated ${aiActivities.length} AI activities for ${location}`);
       return aiActivities;
     } catch (error) {
       console.error('Error generating AI activities:', error);
@@ -424,16 +532,76 @@ export class PlannerModel {
 
   /**
    * Calculate optimization score for a trip option
+   * IMPROVED: Score transport and accommodation separately to ensure cheap transport wins
    */
-  static calculateOptimizationScore(option: TripOption, budget: number): number {
+  static calculateOptimizationScore(option: TripOption, budget: number, debug: boolean = false): number {
     let score = 0;
+    const breakdown: any = {};
 
-    // Cost efficiency (40% weight)
-    const costRatio = option.costs.total / budget;
-    const costScore = Math.max(0, 100 - (costRatio * 100));
-    score += costScore * 0.4;
+    // Allocate budget proportionally (30% transport, 50% accommodation, 20% buffer)
+    const transportBudget = budget * 0.3;
+    const accommodationBudget = budget * 0.5;
+    
+    // TRANSPORT COST SCORE (30% of total score)
+    // Score transport cost against transport budget to create meaningful differences
+    const transportCost = option.costs.transportation;
+    const transportRatio = transportCost / transportBudget;
+    
+    let transportScore = 0;
+    if (transportRatio <= 0.1) {
+      // Super cheap transport (0-10% of transport budget): 95-100
+      transportScore = 100 - (transportRatio / 0.1) * 5;
+    } else if (transportRatio <= 0.3) {
+      // Very cheap (10-30%): 85-95
+      transportScore = 95 - ((transportRatio - 0.1) / 0.2) * 10;
+    } else if (transportRatio <= 0.6) {
+      // Moderate (30-60%): 65-85
+      transportScore = 85 - ((transportRatio - 0.3) / 0.3) * 20;
+    } else if (transportRatio <= 1.0) {
+      // Expensive (60-100%): 30-65
+      transportScore = 65 - ((transportRatio - 0.6) / 0.4) * 35;
+    } else {
+      // Over budget: 0-30
+      transportScore = Math.max(0, 30 - ((transportRatio - 1.0) / 0.5) * 30);
+    }
+    
+    const transportPoints = transportScore * 0.3;
+    score += transportPoints;
+    breakdown.transport = { 
+      cost: transportCost, 
+      budget: transportBudget, 
+      ratio: `${(transportRatio * 100).toFixed(1)}%`,
+      score: transportScore.toFixed(1), 
+      points: transportPoints.toFixed(1) 
+    };
 
-    // Rating quality (30% weight)
+    // ACCOMMODATION COST SCORE (30% of total score)
+    // Score accommodation separately
+    const accommodationCost = option.costs.accommodation;
+    const accommodationRatio = accommodationCost / accommodationBudget;
+    
+    let accommodationScore = 0;
+    if (accommodationRatio <= 0.3) {
+      accommodationScore = 100 - (accommodationRatio / 0.3) * 10;
+    } else if (accommodationRatio <= 0.6) {
+      accommodationScore = 90 - ((accommodationRatio - 0.3) / 0.3) * 20;
+    } else if (accommodationRatio <= 1.0) {
+      accommodationScore = 70 - ((accommodationRatio - 0.6) / 0.4) * 40;
+    } else {
+      accommodationScore = Math.max(0, 30 - ((accommodationRatio - 1.0) / 0.5) * 30);
+    }
+    
+    const accommodationPoints = accommodationScore * 0.3;
+    score += accommodationPoints;
+    breakdown.accommodation = { 
+      cost: accommodationCost, 
+      budget: accommodationBudget,
+      ratio: `${(accommodationRatio * 100).toFixed(1)}%`,
+      score: accommodationScore.toFixed(1), 
+      points: accommodationPoints.toFixed(1) 
+    };
+
+    // Rating quality (20% weight)
     let avgRating = 0;
     let ratingCount = 0;
 
@@ -450,17 +618,30 @@ export class PlannerModel {
       ratingCount++;
     }
 
+    let ratingPoints = 0;
     if (ratingCount > 0) {
       avgRating = avgRating / ratingCount;
-      score += (avgRating / 5) * 100 * 0.3;
+      ratingPoints = (avgRating / 5) * 100 * 0.2;
+      breakdown.rating = { avgRating: avgRating.toFixed(1), points: ratingPoints.toFixed(1) };
+    } else {
+      // If no ratings, give a decent neutral score (70% of max rating points)
+      ratingPoints = 70 * 0.2; // 14 points instead of 0
+      breakdown.rating = { avgRating: 'N/A', points: ratingPoints.toFixed(1), note: 'neutral (no ratings)' };
     }
+    score += ratingPoints;
 
-    // Completeness (30% weight)
+    // Completeness (20% weight)
     let completeness = 0;
     if (option.outboundTransport) completeness += 0.4;
     if (option.returnTransport) completeness += 0.3;
     if (option.accommodation) completeness += 0.3;
-    score += completeness * 100 * 0.3;
+    const completenessPoints = completeness * 100 * 0.2;
+    score += completenessPoints;
+    breakdown.completeness = { score: (completeness * 100).toFixed(1), points: completenessPoints.toFixed(1) };
+
+    if (debug) {
+      console.log(`      Score breakdown:`, breakdown, `Total: ${score.toFixed(1)}`);
+    }
 
     return Math.round(score * 10) / 10;
   }
@@ -613,17 +794,27 @@ export class PlannerModel {
           / (1000 * 60 * 60 * 24)
         );
 
+        // Track already available activity titles to avoid duplicates
+        const existingActivityTitles = new Set(
+          bestResult.availableOptions.activities.map(a => a.title)
+        );
+
         const aiActivities = await AIPlannerAgent.generateActivitySuggestions(
           request.endLocation,
           request.interests,
           bestResult.availableOptions.activities,
-          numberOfDays
+          numberOfDays,
+          existingActivityTitles
         );
 
-        // Merge AI activities with existing ones
+        // Merge AI activities with existing ones, avoiding duplicates
+        const uniqueAiActivities = aiActivities.filter(
+          ai => !existingActivityTitles.has(ai.title)
+        );
+        
         bestResult.availableOptions.activities = [
           ...bestResult.availableOptions.activities,
-          ...aiActivities
+          ...uniqueAiActivities
         ];
 
       } catch (error) {
@@ -650,7 +841,8 @@ export class PlannerModel {
       interests,
       budget,
       numberOfTravelers,
-      needsReturnTransport = true
+      needsReturnTransport = true,
+      detailedStartLocation
     } = request;
 
     const startDate = new Date(startTime);
@@ -681,7 +873,8 @@ export class PlannerModel {
         startDate,
         numberOfTravelers,
         maxBudgetPerSeat,
-        false
+        false,
+        detailedStartLocation // Pass coordinates for outbound trip
       ),
       needsReturnTransport
         ? this.findAvailableTransportation(
@@ -700,23 +893,32 @@ export class PlannerModel {
         numberOfTravelers,
         estimatedAccommodationCost
       ),
-      this.findActivities(interests, endLocation)
+      this.findActivities(interests, endLocation, numberOfNights)
     ]);
 
     // Generate trip options (combinations)
     const recommendedPlans: TripOption[] = [];
     let optionCounter = 0;
 
-    // Generate top combinations
-    const maxOutbound = Math.min(outboundTransportation.length, 3);
-    const maxReturn = Math.min(returnTransportation.length, 2);
+    // IMPORTANT: Sort transportation by price to ensure cheapest options are included
+    // The query sorts by departureTime first, but we want price priority for plan generation
+    const sortedOutbound = [...outboundTransportation].sort((a, b) => a.pricePerSeat - b.pricePerSeat);
+    const sortedReturn = [...returnTransportation].sort((a, b) => a.pricePerSeat - b.pricePerSeat);
+    
+    console.log(`   🎯 Using top rides by price for plan generation:`);
+    console.log(`      Outbound: ${sortedOutbound.slice(0, 3).map(t => `${t.vehicleType}@${t.pricePerSeat}`).join(', ')}`);
+    console.log(`      Return: ${sortedReturn.slice(0, 2).map(t => `${t.vehicleType}@${t.pricePerSeat}`).join(', ')}`);
+
+    // Generate top combinations - use PRICE-SORTED lists
+    const maxOutbound = Math.min(sortedOutbound.length, 5); // Increased from 3 to 5 for more variety
+    const maxReturn = Math.min(sortedReturn.length, 3); // Increased from 2 to 3
     const maxAccommodation = Math.min(accommodations.length, 3);
 
     for (let i = 0; i < maxOutbound || i === 0; i++) {
       for (let j = 0; j < maxReturn || j === 0; j++) {
         for (let k = 0; k < maxAccommodation || k === 0; k++) {
-          const outbound = outboundTransportation[i] || null;
-          const returnTrip = returnTransportation[j] || null;
+          const outbound = sortedOutbound[i] || null;
+          const returnTrip = sortedReturn[j] || null;
           const accommodation = accommodations[k] || null;
 
           const transportCost = (outbound?.totalCost || 0) + (returnTrip?.totalCost || 0);
@@ -756,8 +958,96 @@ export class PlannerModel {
       }
     }
 
+    // CRITICAL: Apply relative pricing bonus
+    // If multiple plans have the same accommodation, give significant bonus to cheaper transport
+    if (recommendedPlans.length > 1) {
+      console.log(`\n   🔧 Applying relative pricing bonus to ${recommendedPlans.length} plans...`);
+      
+      // Group plans by accommodation
+      const plansByAccommodation = new Map<number | null, typeof recommendedPlans>();
+      
+      recommendedPlans.forEach(plan => {
+        const accId = plan.accommodation?.id || null;
+        if (!plansByAccommodation.has(accId)) {
+          plansByAccommodation.set(accId, []);
+        }
+        plansByAccommodation.get(accId)!.push(plan);
+      });
+
+      console.log(`   📦 Grouped into ${plansByAccommodation.size} accommodation groups`);
+
+      // For each accommodation group, apply transport cost bonus
+      plansByAccommodation.forEach((plans, accId) => {
+        if (plans.length < 2) {
+          console.log(`   ⊘ Group ${accId || 'no-accommodation'}: Only 1 plan, skipping bonus`);
+          return;
+        }
+        
+        console.log(`   \n   🏨 Group ${accId || 'no-accommodation'} (${plans.length} plans):`);
+        
+        // Find cheapest and most expensive transport in this group
+        const transportCosts = plans.map(p => p.costs.transportation);
+        const minTransport = Math.min(...transportCosts);
+        const maxTransport = Math.max(...transportCosts);
+        
+        console.log(`      Transport range: ${minTransport} - ${maxTransport} PKR`);
+        
+        // Skip if all transports cost the same
+        if (minTransport === maxTransport) {
+          console.log(`      ⊘ All plans have same transport cost, skipping bonus`);
+          return;
+        }
+        
+        // Apply bonus points based on how much cheaper the transport is
+        plans.forEach(plan => {
+          const oldScore = plan.optimizationScore;
+          const savings = maxTransport - plan.costs.transportation;
+          const savingsRatio = savings / maxTransport;
+          
+          // Give up to 15 bonus points for having cheaper transport (within same accommodation)
+          const bonus = savingsRatio * 15;
+          plan.optimizationScore += bonus;
+          
+          console.log(`      - ${plan.planName.substring(0, 50)}...`);
+          console.log(`        Transport: ${plan.costs.transportation} PKR, Savings: ${savings} PKR (${(savingsRatio * 100).toFixed(1)}%)`);
+          console.log(`        Score: ${oldScore.toFixed(1)} + ${bonus.toFixed(1)} bonus = ${plan.optimizationScore.toFixed(1)}`);
+        });
+      });
+    }
+
     // Sort by optimization score
     recommendedPlans.sort((a, b) => b.optimizationScore - a.optimizationScore);
+
+    // IMPORTANT: If multiple plans have similar scores (within 5 points), prioritize by lowest total cost
+    // This ensures that cheaper options win when quality is similar
+    for (let i = 0; i < recommendedPlans.length - 1; i++) {
+      const current = recommendedPlans[i];
+      const next = recommendedPlans[i + 1];
+      
+      if (Math.abs(current.optimizationScore - next.optimizationScore) <= 5) {
+        // Scores are very similar, check if next plan is significantly cheaper
+        if (next.costs.total < current.costs.total * 0.5) { // Next is 50%+ cheaper
+          // Swap them - cheaper should win
+          [recommendedPlans[i], recommendedPlans[i + 1]] = [recommendedPlans[i + 1], recommendedPlans[i]];
+        }
+      }
+    }
+
+    // Debug: Show top 3 plans with score breakdown
+    console.log(`\n   📊 Generated ${recommendedPlans.length} trip plans. Top 3:`);
+    recommendedPlans.slice(0, 3).forEach((plan, idx) => {
+      console.log(`   ${idx + 1}. ${plan.planName} - Score: ${plan.optimizationScore}`);
+      console.log(`      💰 Total cost: ${plan.costs.total.toLocaleString()} PKR (${((plan.costs.total / budget) * 100).toFixed(1)}% of budget)`);
+      if (plan.outboundTransport) {
+        console.log(`      🚗 Outbound: ${plan.outboundTransport.vehicleType} @ ${plan.outboundTransport.pricePerSeat} PKR/seat (Rating: ${plan.outboundTransport.avgRating || 'N/A'})`);
+      }
+      if (plan.returnTransport) {
+        console.log(`      🔙 Return: ${plan.returnTransport.vehicleType} @ ${plan.returnTransport.pricePerSeat} PKR/seat (Rating: ${plan.returnTransport.avgRating || 'N/A'})`);
+      }
+      if (plan.accommodation) {
+        console.log(`      🏨 Stay: ${plan.accommodation.name} @ ${plan.accommodation.totalCost.toLocaleString()} PKR (Rating: ${plan.accommodation.avgRating || 'N/A'})`);
+      }
+    });
 
     // Mark the best option as optimal
     if (recommendedPlans.length > 0) {
@@ -770,7 +1060,8 @@ export class PlannerModel {
       startDate,
       endDate,
       interests,
-      numberOfTravelers
+      numberOfTravelers,
+      activities // Pass AI-generated activities
     );
 
     // Calculate trip summary
@@ -890,10 +1181,13 @@ export class PlannerModel {
     startDate: Date,
     endDate: Date,
     interests: string[],
-    numberOfTravelers: number
+    numberOfTravelers: number,
+    aiActivities: ActivityOption[] = []
   ): Promise<DayItinerary[]> {
     const itinerary: DayItinerary[] = [];
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log(`📅 Generating ${totalDays}-day itinerary with ${aiActivities.length} AI activities`);
 
     // Clean destination - "Lahore City, Pakistan" -> "lahore"
     const cleanDest = destination.split(',')[0].trim().replace(/\s+City$/i, '').trim().toLowerCase();
@@ -943,6 +1237,56 @@ export class PlannerModel {
 
     const destinationKey = cleanDest;
     const locations = locationDatabase[destinationKey] || [];
+    
+    // Track used AI activities to ensure unique activities per day
+    const usedActivityIndices = new Set<number>();
+    
+    // Helper to get next unused AI activity
+    const getNextActivity = (preferredTags: string[] = []): ActivityOption | null => {
+      // First try to find activity matching preferred tags
+      for (let i = 0; i < aiActivities.length; i++) {
+        if (usedActivityIndices.has(i)) continue;
+        
+        const activity = aiActivities[i];
+        const hasPreferredTag = preferredTags.length === 0 || 
+          preferredTags.some(tag => activity.tags?.includes(tag));
+        
+        if (hasPreferredTag) {
+          usedActivityIndices.add(i);
+          return activity;
+        }
+      }
+      
+      // If no match, get any unused activity
+      for (let i = 0; i < aiActivities.length; i++) {
+        if (!usedActivityIndices.has(i)) {
+          usedActivityIndices.add(i);
+          return aiActivities[i];
+        }
+      }
+      
+      return null; // All activities used
+    };
+    
+    // Track used hardcoded locations as fallback
+    const usedLocationIndices = new Set<number>();
+    
+    // Helper to get next unused location (fallback when AI activities run out)
+    const getNextUnusedLocation = (): LocationDetails | null => {
+      for (let i = 0; i < locations.length; i++) {
+        if (!usedLocationIndices.has(i)) {
+          usedLocationIndices.add(i);
+          return locations[i];
+        }
+      }
+      // If all locations used, reset and start over
+      usedLocationIndices.clear();
+      if (locations.length > 0) {
+        usedLocationIndices.add(0);
+        return locations[0];
+      }
+      return null;
+    };
 
     for (let day = 0; day < totalDays; day++) {
       const currentDate = new Date(startDate);
@@ -972,22 +1316,38 @@ export class PlannerModel {
           duration: 90,
           type: 'lunch',
           title: 'Welcome Lunch',
-          description: locations[0] ? getLocationDescription(locations[0].name) : 'Try local cuisine at a popular restaurant',
-          location: locations[0] || { name: 'Local Restaurant', address: destination },
+          description: 'Try local cuisine at a popular restaurant',
+          location: { name: 'Local Restaurant', address: destination },
           estimatedCost: 1500 * numberOfTravelers,
           tips: 'Try the local specialties!'
         });
 
-        activities.push({
-          time: '04:00 PM',
-          duration: 120,
-          type: 'attraction',
-          title: 'City Orientation Walk',
-          description: locations[1] ? getLocationDescription(locations[1].name) : 'Light evening walk to explore nearby area',
-          location: locations[1] || { name: 'City Center', address: destination },
-          estimatedCost: 500 * numberOfTravelers,
-          tips: 'Great time for photos in evening light'
-        });
+        // Evening activity - prefer AI-generated, fallback to hardcoded
+        const eveningActivity = getNextActivity(['sightseeing', 'culture', 'food']);
+        if (eveningActivity) {
+          activities.push({
+            time: '04:00 PM',
+            duration: 120,
+            type: 'attraction',
+            title: eveningActivity.title,
+            description: eveningActivity.description || `Light evening activity to explore ${eveningActivity.title}`,
+            location: { name: eveningActivity.title, address: destination },
+            estimatedCost: eveningActivity.estimatedCost || (500 * numberOfTravelers),
+            tips: 'Great time for photos in evening light'
+          });
+        } else {
+          const eveningLoc = getNextUnusedLocation();
+          activities.push({
+            time: '04:00 PM',
+            duration: 120,
+            type: 'attraction',
+            title: 'City Orientation Walk',
+            description: eveningLoc ? getLocationDescription(eveningLoc.name) : 'Light evening walk to explore nearby area',
+            location: eveningLoc || { name: 'City Center', address: destination },
+            estimatedCost: 500 * numberOfTravelers,
+            tips: 'Great time for photos in evening light'
+          });
+        }
 
       } else if (day === totalDays - 1) {
         // Last day - Departure
@@ -1001,16 +1361,32 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
-        activities.push({
-          time: '10:00 AM',
-          duration: 90,
-          type: 'shopping',
-          title: 'Last-minute Shopping',
-          description: 'Pick up souvenirs and local products',
-          location: locations[locations.length - 1] || { name: 'Shopping Area', address: destination },
-          estimatedCost: 2000 * numberOfTravelers,
-          tips: 'Bargaining is common in local markets'
-        });
+        // Last-minute activity - prefer shopping/market AI activities
+        const shoppingActivity = getNextActivity(['shopping', 'market', 'souvenir']);
+        if (shoppingActivity) {
+          activities.push({
+            time: '10:00 AM',
+            duration: 90,
+            type: 'shopping',
+            title: shoppingActivity.title,
+            description: shoppingActivity.description || 'Pick up souvenirs and local products',
+            location: { name: shoppingActivity.title, address: destination },
+            estimatedCost: shoppingActivity.estimatedCost || (2000 * numberOfTravelers),
+            tips: 'Bargaining is common in local markets'
+          });
+        } else {
+          const shoppingLoc = getNextUnusedLocation();
+          activities.push({
+            time: '10:00 AM',
+            duration: 90,
+            type: 'shopping',
+            title: 'Last-minute Shopping',
+            description: 'Pick up souvenirs and local products',
+            location: shoppingLoc || { name: 'Shopping Area', address: destination },
+            estimatedCost: 2000 * numberOfTravelers,
+            tips: 'Bargaining is common in local markets'
+          });
+        }
 
         activities.push({
           time: '12:00 PM',
@@ -1023,7 +1399,7 @@ export class PlannerModel {
         });
 
       } else {
-        // Regular days
+        // Regular days - Use AI-generated activities
         activities.push({
           time: '08:00 AM',
           duration: 60,
@@ -1034,43 +1410,78 @@ export class PlannerModel {
           estimatedCost: 800 * numberOfTravelers
         });
 
-        // Morning activity
-        const morningLoc = locations[(day * 2) % locations.length];
-        activities.push({
-          time: '10:00 AM',
-          duration: 150,
-          type: 'attraction',
-          title: `Visit ${morningLoc?.name || 'Local Attraction'}`,
-          description: (morningLoc && morningLoc.name) ? getLocationDescription(morningLoc.name) : `Explore the ${morningLoc?.name || 'attraction'} and learn about its history`,
-          location: morningLoc || { name: 'Attraction', address: destination },
-          estimatedCost: 500 * numberOfTravelers,
-          bookingRequired: false,
-          mapUrl: morningLoc?.googleMapsUrl
-        });
+        // Morning activity - get unique AI activity or fallback to location
+        const morningActivity = getNextActivity(['culture', 'history', 'sightseeing', 'museum']);
+        if (morningActivity) {
+          activities.push({
+            time: '10:00 AM',
+            duration: 150,
+            type: 'attraction',
+            title: morningActivity.title,
+            description: morningActivity.description || `Explore ${morningActivity.title} and learn about its significance`,
+            location: { name: morningActivity.title, address: destination },
+            estimatedCost: morningActivity.estimatedCost || (500 * numberOfTravelers),
+            bookingRequired: false
+          });
+        } else {
+          // Fallback to hardcoded location if no AI activities left
+          const morningLoc = getNextUnusedLocation();
+          activities.push({
+            time: '10:00 AM',
+            duration: 150,
+            type: 'attraction',
+            title: `Visit ${morningLoc?.name || 'Local Attraction'}`,
+            description: (morningLoc && morningLoc.name) ? getLocationDescription(morningLoc.name) : `Explore the ${morningLoc?.name || 'attraction'} and learn about its history`,
+            location: morningLoc || { name: 'Attraction', address: destination },
+            estimatedCost: 500 * numberOfTravelers,
+            bookingRequired: false,
+            mapUrl: morningLoc?.googleMapsUrl
+          });
+        }
 
+        // Lunch
         activities.push({
           time: '01:00 PM',
           duration: 90,
           type: 'lunch',
           title: 'Lunch',
           description: 'Enjoy traditional local cuisine with authentic flavors and regional specialties',
-          location: locations[(day * 2 + 1) % locations.length] || { name: 'Restaurant', address: destination },
+          location: { name: 'Local Restaurant', address: destination },
           estimatedCost: 2000 * numberOfTravelers,
           tips: 'Try the chef\'s special!'
         });
 
-        // Afternoon activity
-        const afternoonLoc = locations[(day * 2 + 2) % locations.length];
-        activities.push({
-          time: '03:00 PM',
-          duration: 180,
-          type: interests.includes('shopping') ? 'shopping' : 'activity',
-          title: `${afternoonLoc?.name || 'Afternoon Activity'}`,
-          description: (afternoonLoc && afternoonLoc.name) ? getLocationDescription(afternoonLoc.name) : `Experience ${afternoonLoc?.name || 'the local culture'}`,
-          location: afternoonLoc || { name: 'Activity Location', address: destination },
-          estimatedCost: 1500 * numberOfTravelers,
-          mapUrl: afternoonLoc?.googleMapsUrl
-        });
+        // Afternoon activity - get unique AI activity or fallback
+        const afternoonActivity = getNextActivity(
+          interests.includes('shopping') ? ['shopping', 'market'] : 
+          interests.includes('nature') ? ['nature', 'outdoor', 'adventure'] :
+          ['activity', 'entertainment', 'experience']
+        );
+        
+        if (afternoonActivity) {
+          activities.push({
+            time: '03:00 PM',
+            duration: 180,
+            type: interests.includes('shopping') ? 'shopping' : 'activity',
+            title: afternoonActivity.title,
+            description: afternoonActivity.description || `Experience ${afternoonActivity.title}`,
+            location: { name: afternoonActivity.title, address: destination },
+            estimatedCost: afternoonActivity.estimatedCost || (1500 * numberOfTravelers)
+          });
+        } else {
+          // Fallback to hardcoded location
+          const afternoonLoc = getNextUnusedLocation();
+          activities.push({
+            time: '03:00 PM',
+            duration: 180,
+            type: interests.includes('shopping') ? 'shopping' : 'activity',
+            title: `${afternoonLoc?.name || 'Afternoon Activity'}`,
+            description: (afternoonLoc && afternoonLoc.name) ? getLocationDescription(afternoonLoc.name) : `Experience ${afternoonLoc?.name || 'the local culture'}`,
+            location: afternoonLoc || { name: 'Activity Location', address: destination },
+            estimatedCost: 1500 * numberOfTravelers,
+            mapUrl: afternoonLoc?.googleMapsUrl
+          });
+        }
 
         activities.push({
           time: '07:00 PM',
