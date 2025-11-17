@@ -51,6 +51,59 @@ export default class AccommodationBookingModel {
   }
 
   /**
+   * Create a booking with confirmed status directly after successful payment
+   * This prevents duplicate pending bookings if the user cancels payment
+   * IMPORTANT: Call this ONLY after payment is confirmed in Stripe
+   * We don't store paymentId in DB - it's only used for reference
+   */
+  async createConfirmedBooking(
+    travelerId: string,
+    roomId: number,
+    checkInDate: Date,
+    checkOutDate: Date,
+    totalPrice: number,
+    paymentId: string // For reference only, not stored in DB
+  ): Promise<AccommodationBooking> {
+    try {
+      const booking = await prisma.accommodationBooking.create({
+        data: {
+          travelerId,
+          roomId,
+          checkInDate,
+          checkOutDate,
+          totalPrice: new Decimal(totalPrice),
+          status: "confirmed", // Create directly with confirmed status, NOT pending
+          // paymentId is passed for reference but we don't store it in the booking table
+        },
+        include: {
+          room: {
+            include: {
+              accommodation: {
+                include: {
+                  provider: true,
+                },
+              },
+            },
+          },
+          traveler: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              phoneNumber: true,
+            },
+          },
+        },
+      });
+      console.log(`✅ Confirmed booking created after successful payment (Payment ID: ${paymentId})`);
+      return booking;
+    } catch (error) {
+      console.error("Error creating confirmed booking:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get accommodation booking by ID
    */
   async getAccommodationBookingById(id: number): Promise<any | null> {

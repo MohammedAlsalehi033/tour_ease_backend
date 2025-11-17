@@ -7,6 +7,12 @@ const router = express.Router();
 const paymentModel = new PaymentModel();
 const paymentController = new PaymentController(paymentModel);
 
+// Create a Stripe payment intent
+router.post(
+  "/create-payment-intent",
+  paymentController.createPaymentIntent.bind(paymentController)
+);
+
 // Create a new payment
 router.post(
   "/",

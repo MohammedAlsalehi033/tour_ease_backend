@@ -9,6 +9,15 @@ const accommodationBookingController = new AccommodationBookingController(
   accommodationBookingModel
 );
 
+// Create confirmed booking directly after payment (NO pending status)
+// MUST be before the generic POST "/" route to avoid routing conflicts
+router.post(
+  "/create-confirmed",
+  accommodationBookingController.createConfirmedBookingAfterPayment.bind(
+    accommodationBookingController
+  )
+);
+
 // Create accommodation booking
 router.post(
   "/",

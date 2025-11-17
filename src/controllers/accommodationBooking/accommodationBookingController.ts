@@ -345,6 +345,47 @@ export default class AccommodationBookingController {
   }
 
   /**
+   * Create booking with confirmed status directly after successful payment
+   * This prevents duplicate pending bookings if user cancels payment
+   * IMPORTANT: Call this endpoint ONLY after Stripe payment is confirmed
+   */
+  async createConfirmedBookingAfterPayment(req: any, res: any) {
+    try {
+      const { travelerId, roomId, checkInDate, checkOutDate, totalPrice, paymentId } = req.body;
+
+      // Validate required fields
+      if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and paymentId are required",
+        });
+      }
+
+      // Create booking directly with confirmed status (bypassing pending status)
+      const booking = await this.model.createConfirmedBooking(
+        travelerId,
+        parseInt(roomId),
+        new Date(checkInDate),
+        new Date(checkOutDate),
+        parseFloat(totalPrice),
+        paymentId
+      );
+
+      res.status(201).json({
+        success: true,
+        data: booking,
+        message: "Confirmed booking created successfully after payment",
+      });
+    } catch (error: any) {
+      console.error("Error in createConfirmedBookingAfterPayment:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to create confirmed booking",
+      });
+    }
+  }
+
+  /**
    * Request refund for booking (after payment)
    */
   async requestRefund(req: any, res: any) {

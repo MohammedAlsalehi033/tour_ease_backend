@@ -1,11 +1,67 @@
 import { Request, Response } from "express";
 import PaymentModel from "../../models/payment/paymentModel";
+import Stripe from "stripe";
 
 export default class PaymentController {
   private model: PaymentModel;
+  private stripe: Stripe;
 
   constructor(model: PaymentModel) {
     this.model = model;
+    
+    // Initialize Stripe with secret key from environment
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    
+    if (!secretKey || secretKey === 'your_stripe_secret_key_here') {
+      throw new Error("STRIPE_SECRET_KEY is not properly configured in .env file");
+    }
+    
+    this.stripe = new Stripe(secretKey, {
+      apiVersion: "2025-10-29.clover",
+    });
+  }
+
+  /**
+   * Create a Stripe Payment Intent for accommodation booking
+   */
+  async createPaymentIntent(req: any, res: any) {
+    try {
+      const { amount, currency = "usd", bookingId, customerEmail } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid amount is required",
+        });
+      }
+
+      // Create a PaymentIntent with Stripe
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: currency,
+        metadata: {
+          bookingId: bookingId?.toString() || "",
+          customerEmail: customerEmail || "",
+        },
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to create payment intent",
+      });
+    }
   }
 
   /**
