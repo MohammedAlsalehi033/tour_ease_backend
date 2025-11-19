@@ -34,10 +34,29 @@ router.get(
   )
 );
 
-// Get booking by ID
+// IMPORTANT: Specific routes must come BEFORE generic /:id routes
+// to avoid routing conflicts
+
+// Get bookings by traveler (specific path, must be before /:id)
 router.get(
-  "/:id",
-  accommodationBookingController.getAccommodationBookingById.bind(
+  "/traveler/:travelerId",
+  accommodationBookingController.getBookingsByTraveler.bind(
+    accommodationBookingController
+  )
+);
+
+// Cancel booking and request refund (Traveler endpoint) - BEFORE /:id routes
+router.patch(
+  "/:id/cancel-and-refund",
+  accommodationBookingController.cancelBookingAndRefund.bind(
+    accommodationBookingController
+  )
+);
+
+// Submit review for completed booking (Traveler endpoint) - BEFORE /:id routes
+router.post(
+  "/:id/review",
+  accommodationBookingController.submitBookingReview.bind(
     accommodationBookingController
   )
 );
@@ -46,46 +65,6 @@ router.get(
 router.patch(
   "/:id/status",
   accommodationBookingController.updateBookingStatus.bind(
-    accommodationBookingController
-  )
-);
-
-// Update booking
-router.put(
-  "/:id",
-  accommodationBookingController.updateAccommodationBooking.bind(
-    accommodationBookingController
-  )
-);
-
-// Cancel booking
-router.patch(
-  "/:id/cancel",
-  accommodationBookingController.cancelAccommodationBooking.bind(
-    accommodationBookingController
-  )
-);
-
-// Delete booking
-router.delete(
-  "/:id",
-  accommodationBookingController.deleteAccommodationBooking.bind(
-    accommodationBookingController
-  )
-);
-
-// Get bookings by traveler
-router.get(
-  "/traveler/:travelerId",
-  accommodationBookingController.getBookingsByTraveler.bind(
-    accommodationBookingController
-  )
-);
-
-// Get bookings by provider
-router.get(
-  "/provider/:providerId",
-  accommodationBookingController.getBookingsByProvider.bind(
     accommodationBookingController
   )
 );
@@ -138,18 +117,42 @@ router.patch(
   )
 );
 
-// Cancel booking and request refund (Traveler endpoint)
+// Cancel booking (generic cancel)
 router.patch(
-  "/:id/cancel-and-refund",
-  accommodationBookingController.cancelBookingAndRefund.bind(
+  "/:id/cancel",
+  accommodationBookingController.cancelAccommodationBooking.bind(
     accommodationBookingController
   )
 );
 
-// Submit review for completed booking (Traveler endpoint)
-router.post(
-  "/:id/review",
-  accommodationBookingController.submitBookingReview.bind(
+// Get booking by ID - AFTER all specific /:id/* routes
+router.get(
+  "/:id",
+  accommodationBookingController.getAccommodationBookingById.bind(
+    accommodationBookingController
+  )
+);
+
+// Update booking - AFTER all specific /:id/* routes
+router.put(
+  "/:id",
+  accommodationBookingController.updateAccommodationBooking.bind(
+    accommodationBookingController
+  )
+);
+
+// Delete booking - AFTER all specific /:id/* routes
+router.delete(
+  "/:id",
+  accommodationBookingController.deleteAccommodationBooking.bind(
+    accommodationBookingController
+  )
+);
+
+// Get bookings by provider - must be before generic /:id routes
+router.get(
+  "/provider/:providerId",
+  accommodationBookingController.getBookingsByProvider.bind(
     accommodationBookingController
   )
 );
