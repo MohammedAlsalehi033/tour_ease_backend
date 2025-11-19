@@ -261,6 +261,7 @@ export default class RoomModel {
         },
         select: {
           roomId: true,
+          status: true,
         },
       });
 
@@ -268,15 +269,18 @@ export default class RoomModel {
       const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
       // Get all rooms for this accommodation that are NOT in the booked list
+      const whereClause: any = { 
+        accommodationId: accommodationId,
+      };
+      
+      if (bookedIds.length > 0) {
+        whereClause.id = {
+          notIn: bookedIds,
+        };
+      }
+
       const rooms = await prisma.room.findMany({
-        where: { 
-          accommodationId,
-          ...(bookedIds.length > 0 ? {
-            id: {
-              notIn: bookedIds,
-            },
-          } : {}),
-        },
+        where: whereClause,
         include: {
           reviews: {
             select: {

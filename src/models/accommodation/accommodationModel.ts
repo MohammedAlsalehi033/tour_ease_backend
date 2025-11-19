@@ -141,6 +141,13 @@ export default class AccommodationModel {
       // Get unique room IDs using Set
       const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
+      const roomWhereClause: any = {};
+      if (bookedIds.length > 0) {
+        roomWhereClause.id = {
+          notIn: bookedIds,
+        };
+      }
+
       const accommodation = await prisma.accommodation.findUnique({
         where: { id },
         include: {
@@ -158,11 +165,7 @@ export default class AccommodationModel {
             },
           },
           rooms: {
-            where: bookedIds.length > 0 ? {
-              id: {
-                notIn: bookedIds,
-              },
-            } : {},
+            where: roomWhereClause,
             orderBy: {
               pricePerNight: "asc",
             },
@@ -244,6 +247,13 @@ export default class AccommodationModel {
       // Get unique room IDs using Set
       const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
+      const roomWhereClause: any = {};
+      if (bookedIds.length > 0) {
+        roomWhereClause.id = {
+          notIn: bookedIds,
+        };
+      }
+
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
           where,
@@ -259,11 +269,7 @@ export default class AccommodationModel {
               },
             },
             rooms: {
-              where: bookedIds.length > 0 ? {
-                id: {
-                  notIn: bookedIds,
-                },
-              } : {},
+              where: roomWhereClause,
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -391,6 +397,13 @@ export default class AccommodationModel {
       // Get unique room IDs using Set
       const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
+      const roomWhereClause: any = {};
+      if (bookedIds.length > 0) {
+        roomWhereClause.id = {
+          notIn: bookedIds,
+        };
+      }
+
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
           where,
@@ -399,11 +412,7 @@ export default class AccommodationModel {
           include: {
             provider: true,
             rooms: {
-              where: bookedIds.length > 0 ? {
-                id: {
-                  notIn: bookedIds,
-                },
-              } : {},
+              where: roomWhereClause,
               orderBy: {
                 pricePerNight: "asc",
               },
