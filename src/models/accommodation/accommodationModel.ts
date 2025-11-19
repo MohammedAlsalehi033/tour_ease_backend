@@ -124,7 +124,7 @@ export default class AccommodationModel {
   async getAccommodationById(id: number): Promise<any | null> {
     try {
       // First get room IDs that have active bookings for this accommodation
-      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+      const bookedRooms = await prisma.accommodationBooking.findMany({
         where: {
           status: {
             in: ["pending", "confirmed"],
@@ -136,10 +136,10 @@ export default class AccommodationModel {
         select: {
           roomId: true,
         },
-        distinct: ['roomId'],
       });
 
-      const bookedIds = bookedRoomIds.map(b => b.roomId);
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
       const accommodation = await prisma.accommodation.findUnique({
         where: { id },
@@ -158,11 +158,11 @@ export default class AccommodationModel {
             },
           },
           rooms: {
-            where: {
+            where: bookedIds.length > 0 ? {
               id: {
                 notIn: bookedIds,
               },
-            },
+            } : {},
             orderBy: {
               pricePerNight: "asc",
             },
@@ -230,7 +230,7 @@ export default class AccommodationModel {
       }
 
       // Get all booked room IDs
-      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+      const bookedRooms = await prisma.accommodationBooking.findMany({
         where: {
           status: {
             in: ["pending", "confirmed"],
@@ -239,10 +239,10 @@ export default class AccommodationModel {
         select: {
           roomId: true,
         },
-        distinct: ['roomId'],
       });
 
-      const bookedIds = bookedRoomIds.map(b => b.roomId);
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
@@ -259,11 +259,11 @@ export default class AccommodationModel {
               },
             },
             rooms: {
-              where: {
+              where: bookedIds.length > 0 ? {
                 id: {
                   notIn: bookedIds,
                 },
-              },
+              } : {},
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -377,7 +377,7 @@ export default class AccommodationModel {
       };
 
       // Get all booked room IDs
-      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+      const bookedRooms = await prisma.accommodationBooking.findMany({
         where: {
           status: {
             in: ["pending", "confirmed"],
@@ -386,10 +386,10 @@ export default class AccommodationModel {
         select: {
           roomId: true,
         },
-        distinct: ['roomId'],
       });
 
-      const bookedIds = bookedRoomIds.map(b => b.roomId);
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
 
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
@@ -399,11 +399,11 @@ export default class AccommodationModel {
           include: {
             provider: true,
             rooms: {
-              where: {
+              where: bookedIds.length > 0 ? {
                 id: {
                   notIn: bookedIds,
                 },
-              },
+              } : {},
               orderBy: {
                 pricePerNight: "asc",
               },

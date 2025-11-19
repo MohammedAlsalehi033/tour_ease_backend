@@ -250,7 +250,7 @@ export default class RoomModel {
   async getRoomsByAccommodation(accommodationId: number): Promise<any[]> {
     try {
       // First, get all room IDs that have active bookings
-      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+      const bookedRooms = await prisma.accommodationBooking.findMany({
         where: {
           status: {
             in: ["pending", "confirmed"],
@@ -262,18 +262,22 @@ export default class RoomModel {
         select: {
           roomId: true,
         },
-        distinct: ['roomId'],
       });
 
-      const bookedIds = bookedRoomIds.map(b => b.roomId);
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
+
+      console.log(`🔍 Accommodation ${accommodationId} - Found ${bookedIds.length} booked rooms:`, bookedIds);
 
       // Get all rooms for this accommodation that are NOT in the booked list
       const rooms = await prisma.room.findMany({
         where: { 
           accommodationId,
-          id: {
-            notIn: bookedIds,
-          },
+          ...(bookedIds.length > 0 ? {
+            id: {
+              notIn: bookedIds,
+            },
+          } : {}),
         },
         include: {
           reviews: {
@@ -286,6 +290,8 @@ export default class RoomModel {
           pricePerNight: "asc",
         },
       });
+
+      console.log(`✅ Accommodation ${accommodationId} - Returning ${rooms.length} available rooms`);
 
       const roomsWithRatings = rooms.map((room) => {
         const avgRating =
