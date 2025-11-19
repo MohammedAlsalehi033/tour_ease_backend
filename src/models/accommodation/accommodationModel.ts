@@ -119,13 +119,27 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get accommodation by ID (filters out rooms with active/upcoming bookings)
+   * Get accommodation by ID (excludes rooms with any bookings)
    */
   async getAccommodationById(id: number): Promise<any | null> {
     try {
-      // Get the current date at start of day
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+      // First get room IDs that have active bookings for this accommodation
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: id,
+          },
+        },
+        select: {
+          roomId: true,
+        },
+        distinct: ['roomId'],
+      });
+
+      const bookedIds = bookedRoomIds.map(b => b.roomId);
 
       const accommodation = await prisma.accommodation.findUnique({
         where: { id },
@@ -144,20 +158,9 @@ export default class AccommodationModel {
             },
           },
           rooms: {
-            include: {
-              bookings: {
-                where: {
-                  status: {
-                    in: ["pending", "confirmed"],
-                  },
-                  // Only get active/upcoming bookings (checkOutDate > today)
-                  checkOutDate: {
-                    gt: now,
-                  },
-                },
-                select: {
-                  id: true,
-                },
+            where: {
+              id: {
+                notIn: bookedIds,
               },
             },
             orderBy: {
@@ -183,22 +186,7 @@ export default class AccommodationModel {
       
       if (!accommodation) return null;
       
-      // Filter out rooms with active bookings
-      const availableRooms = accommodation.rooms.filter((room: any) => room.bookings.length === 0);
-      
-      // Remove bookings array from response
-      const cleanedRooms = availableRooms.map((room: any) => {
-        const { bookings, ...roomData } = room;
-        return roomData;
-      });
-      
-      // Update accommodation with filtered rooms
-      const cleanedAccommodation = {
-        ...accommodation,
-        rooms: cleanedRooms,
-      };
-      
-      return this.transformAccommodationWithS3Urls(cleanedAccommodation);
+      return this.transformAccommodationWithS3Urls(accommodation);
     } catch (error) {
       console.error("Error getting accommodation:", error);
       throw error;
@@ -206,7 +194,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get all accommodations with pagination and filters
+   * Get all accommodations with pagination and filters (excludes rooms with bookings)
    */
   async getAllAccommodations(
     page: number = 1,
@@ -226,10 +214,6 @@ export default class AccommodationModel {
     totalPages: number;
   }> {
     try {
-      // Get the current date at start of day
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-
       const skip = (page - 1) * pageSize;
       const where: any = {};
 
@@ -244,6 +228,21 @@ export default class AccommodationModel {
           where.providerId = filter.providerId;
         }
       }
+
+      // Get all booked room IDs
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+        },
+        select: {
+          roomId: true,
+        },
+        distinct: ['roomId'],
+      });
+
+      const bookedIds = bookedRoomIds.map(b => b.roomId);
 
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
@@ -260,20 +259,9 @@ export default class AccommodationModel {
               },
             },
             rooms: {
-              include: {
-                bookings: {
-                  where: {
-                    status: {
-                      in: ["pending", "confirmed"],
-                    },
-                    // Only get active/upcoming bookings (checkOutDate > today)
-                    checkOutDate: {
-                      gt: now,
-                    },
-                  },
-                  select: {
-                    id: true,
-                  },
+              where: {
+                id: {
+                  notIn: bookedIds,
                 },
               },
               orderBy: {
@@ -293,7 +281,7 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Calculate average rating and filter out rooms with active bookings
+      // Calculate average rating
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
@@ -301,18 +289,8 @@ export default class AccommodationModel {
               acc.reviews.length
             : 0;
         
-        // Filter rooms to only show those with NO active bookings
-        const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
-        
-        // Remove bookings array from response
-        const cleanedRooms = availableRooms.map((room: any) => {
-          const { bookings, ...roomData } = room;
-          return roomData;
-        });
-        
         return {
           ...acc,
-          rooms: cleanedRooms,
           averageRating: avgRating,
           reviewCount: acc.reviews.length,
         };
@@ -379,7 +357,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Search accommodations by location (filters out booked rooms)
+   * Search accommodations by location (excludes rooms with bookings)
    */
   async searchAccommodationsByLocation(
     location: string,
@@ -393,14 +371,25 @@ export default class AccommodationModel {
     totalPages: number;
   }> {
     try {
-      // Get the current date at start of day
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-
       const skip = (page - 1) * pageSize;
       const where = {
         location: { contains: location, mode: "insensitive" as const },
       };
+
+      // Get all booked room IDs
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+        },
+        select: {
+          roomId: true,
+        },
+        distinct: ['roomId'],
+      });
+
+      const bookedIds = bookedRoomIds.map(b => b.roomId);
 
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
@@ -410,20 +399,9 @@ export default class AccommodationModel {
           include: {
             provider: true,
             rooms: {
-              include: {
-                bookings: {
-                  where: {
-                    status: {
-                      in: ["pending", "confirmed"],
-                    },
-                    // Only get active/upcoming bookings (checkOutDate > today)
-                    checkOutDate: {
-                      gt: now,
-                    },
-                  },
-                  select: {
-                    id: true,
-                  },
+              where: {
+                id: {
+                  notIn: bookedIds,
                 },
               },
               orderBy: {
@@ -440,7 +418,6 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Filter out rooms with active bookings
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
@@ -448,18 +425,8 @@ export default class AccommodationModel {
               acc.reviews.length
             : 0;
         
-        // Filter rooms to only show those with NO active bookings
-        const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
-        
-        // Remove bookings array from response
-        const cleanedRooms = availableRooms.map((room: any) => {
-          const { bookings, ...roomData } = room;
-          return roomData;
-        });
-        
         return {
           ...acc,
-          rooms: cleanedRooms,
           averageRating: avgRating,
           reviewCount: acc.reviews.length,
         };

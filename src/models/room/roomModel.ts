@@ -244,38 +244,41 @@ export default class RoomModel {
   }
 
   /**
-   * Get rooms by accommodation (only rooms with NO active/upcoming bookings)
-   * Filters out rooms that have confirmed or pending bookings for today onwards
+   * Get rooms by accommodation (only rooms with NO bookings at all)
+   * Excludes any rooms that have pending or confirmed bookings
    */
   async getRoomsByAccommodation(accommodationId: number): Promise<any[]> {
     try {
-      // Get the current date at start of day
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+      // First, get all room IDs that have active bookings
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        select: {
+          roomId: true,
+        },
+        distinct: ['roomId'],
+      });
 
-      // Get all rooms for this accommodation
+      const bookedIds = bookedRoomIds.map(b => b.roomId);
+
+      // Get all rooms for this accommodation that are NOT in the booked list
       const rooms = await prisma.room.findMany({
-        where: { accommodationId },
+        where: { 
+          accommodationId,
+          id: {
+            notIn: bookedIds,
+          },
+        },
         include: {
           reviews: {
             select: {
               rating: true,
-            },
-          },
-          bookings: {
-            where: {
-              status: {
-                in: ["pending", "confirmed"],
-              },
-              // Only get bookings that haven't fully checked out yet (checkOutDate > today)
-              checkOutDate: {
-                gt: now,
-              },
-            },
-            select: {
-              id: true,
-              checkInDate: true,
-              checkOutDate: true,
             },
           },
         },
@@ -284,21 +287,15 @@ export default class RoomModel {
         },
       });
 
-      // Filter rooms to include only those with NO active bookings
-      const availableRooms = rooms.filter((room) => room.bookings.length === 0);
-
-      const roomsWithRatings = availableRooms.map((room) => {
+      const roomsWithRatings = rooms.map((room) => {
         const avgRating =
           room.reviews.length > 0
             ? room.reviews.reduce((sum, r) => sum + r.rating, 0) /
               room.reviews.length
             : 0;
         
-        // Remove the bookings array from the response
-        const { bookings, ...roomData } = room;
-        
         return {
-          ...roomData,
+          ...room,
           averageRating: avgRating,
           reviewCount: room.reviews.length,
         };
