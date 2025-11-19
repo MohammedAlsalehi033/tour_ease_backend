@@ -206,6 +206,10 @@ export interface BookingConfirmationRequest {
   checkInDate: Date;
   checkOutDate: Date;
   
+  // Payment information (required for accommodation booking)
+  paymentMethod?: string; // e.g., 'stripe', 'card'
+  stripePaymentIntentId?: string; // Stripe PaymentIntent ID from frontend
+  
   // Additional info
   specialRequests?: string;
 }
