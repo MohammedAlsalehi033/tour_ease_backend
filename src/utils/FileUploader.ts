@@ -7,6 +7,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import { injectable } from "tsyringe";
 require('dotenv').config();
 
 export interface FileUploadResult {
@@ -25,6 +26,7 @@ export abstract class FileUploader {
   abstract deleteFile(key: string): Promise<void>;
 }
 
+@injectable()
 export class FileUploaderForS3 extends FileUploader {
   private s3Client: S3Client;
   private bucket: string;

@@ -1,8 +1,9 @@
-import { container } from "tsyringe";
+import { container, injectable } from "tsyringe";
 import { prisma } from "../../utils/prismaClient";
 import { Offer } from "@prisma/client"; 
 import { FirebaseNotifier } from "../../utils/firebaseNotficationsManger";
 
+@injectable()
 export class PrismaOfferModel {
   getAllOffers(
     page = 1,

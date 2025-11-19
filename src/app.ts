@@ -1,6 +1,7 @@
 import "reflect-metadata"
 import dotenv from 'dotenv';
 dotenv.config();
+import './container'; // Initialize DI container
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';

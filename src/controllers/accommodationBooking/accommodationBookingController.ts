@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import AccommodationBookingModel from "../../models/accommodationBooking/accommodationBookingModel";
+import { injectable } from "tsyringe";
 
+@injectable()
 export default class AccommodationBookingController {
   private model: AccommodationBookingModel;
 

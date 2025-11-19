@@ -1,7 +1,9 @@
 import { prisma } from "../../utils/prismaClient";
 import { AccommodationBooking } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { injectable } from "tsyringe";
 
+@injectable()
 export default class AccommodationBookingModel {
   /**
    * Create a new accommodation booking

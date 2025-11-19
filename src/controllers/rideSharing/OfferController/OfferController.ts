@@ -2,11 +2,12 @@ import { DateTime } from './../../../../node_modules/effect/dist/dts/DateTime.d'
 import { r } from "@faker-js/faker/dist/airline-CBNP41sR";
 import { PrismaOfferModel } from "../../../models/rideSharing/offerModel";
 import { FileUploaderForS3 } from "../../../utils/FileUploader";
-import { container } from "tsyringe";
+import { container, injectable } from "tsyringe";
 import { FirebaseNotifier } from "../../../utils/firebaseNotficationsManger";
 import { prisma } from "../../../utils/prismaClient";
 
 
+@injectable()
 export class OfferController {
   private offerModel: PrismaOfferModel;
   private fileUploader: FileUploaderForS3;
