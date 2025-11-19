@@ -682,7 +682,13 @@ async function processTransportationBooking(
   console.log(`   🔍 Fetching transportation listing...`);
   const listing = await prisma.transportationListing.findUnique({
     where: { id: listingId },
-    include: { provider: true },
+    include: { 
+      provider: {
+        include: {
+          user: { select: { username: true } }
+        }
+      }
+    },
   });
 
   if (!listing) {
@@ -690,8 +696,8 @@ async function processTransportationBooking(
     throw new Error(`Transportation listing ${listingId} not found`);
   }
 
-  console.log(`   ✅ Listing found: ${listing.origin} → ${listing.destination}`);
-  console.log(`   📍 Provider: ${listing.provider.name} (ID: ${listing.providerId})`);
+  console.log(`   ✅ Listing found: ${listing.startLocationText} → ${listing.endLocationText}`);
+  console.log(`   📍 Provider: ${listing.provider.user.username} (ID: ${listing.providerId})`);
   console.log(`   💺 Seats available: ${listing.seatsAvailable}`);
   console.log(`   💰 Price per seat: ${listing.pricePerSeat} PKR`);
 
