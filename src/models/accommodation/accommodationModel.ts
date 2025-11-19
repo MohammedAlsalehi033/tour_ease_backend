@@ -169,6 +169,7 @@ export default class AccommodationModel {
 
   /**
    * Get all accommodations with pagination and filters
+   * Only returns rooms with no confirmed bookings for the selected dates
    */
   async getAllAccommodations(
     page: number = 1,
@@ -235,8 +236,38 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
+      // Filter out rooms with confirmed bookings
+      const accommodationsWithAvailableRooms = await Promise.all(
+        accommodations.map(async (acc) => {
+          // Get all confirmed bookings for this accommodation's rooms
+          const confirmedBookings = await prisma.accommodationBooking.findMany({
+            where: {
+              room: {
+                accommodationId: acc.id,
+              },
+              status: "confirmed",
+            },
+            select: {
+              roomId: true,
+            },
+          });
+
+          const bookedRoomIds = new Set(confirmedBookings.map((b) => b.roomId));
+
+          // Filter out booked rooms
+          const availableRooms = acc.rooms.filter(
+            (room) => !bookedRoomIds.has(room.id)
+          );
+
+          return {
+            ...acc,
+            rooms: availableRooms,
+          };
+        })
+      );
+
       // Calculate average rating for each accommodation
-      const accommodationsWithRatings = accommodations.map((acc) => {
+      const accommodationsWithRatings = accommodationsWithAvailableRooms.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
             ? acc.reviews.reduce((sum, r) => sum + r.rating, 0) /
