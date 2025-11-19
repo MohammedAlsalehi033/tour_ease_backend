@@ -244,10 +244,12 @@ export default class RoomModel {
   }
 
   /**
-   * Get rooms by accommodation
+   * Get rooms by accommodation (only rooms with NO bookings)
+   * Filters out rooms that have any confirmed or pending bookings
    */
   async getRoomsByAccommodation(accommodationId: number): Promise<any[]> {
     try {
+      // Get all rooms for this accommodation
       const rooms = await prisma.room.findMany({
         where: { accommodationId },
         include: {
@@ -256,20 +258,37 @@ export default class RoomModel {
               rating: true,
             },
           },
+          bookings: {
+            where: {
+              status: {
+                in: ["pending", "confirmed"],
+              },
+            },
+            select: {
+              id: true,
+            },
+          },
         },
         orderBy: {
           pricePerNight: "asc",
         },
       });
 
-      const roomsWithRatings = rooms.map((room) => {
+      // Filter rooms to include only those with NO bookings
+      const availableRooms = rooms.filter((room) => room.bookings.length === 0);
+
+      const roomsWithRatings = availableRooms.map((room) => {
         const avgRating =
           room.reviews.length > 0
             ? room.reviews.reduce((sum, r) => sum + r.rating, 0) /
               room.reviews.length
             : 0;
+        
+        // Remove the bookings array from the response
+        const { bookings, ...roomData } = room;
+        
         return {
-          ...room,
+          ...roomData,
           averageRating: avgRating,
           reviewCount: room.reviews.length,
         };
