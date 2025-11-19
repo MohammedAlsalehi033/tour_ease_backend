@@ -318,10 +318,19 @@ export class PlannerModel {
           where: {
             bookings: {
               none: {
-                OR: [
+                AND: [
                   {
-                    checkInDate: { lte: checkOutDate },
-                    checkOutDate: { gte: checkInDate }
+                    status: {
+                      in: ["pending", "confirmed"]
+                    }
+                  },
+                  {
+                    OR: [
+                      {
+                        checkInDate: { lte: checkOutDate },
+                        checkOutDate: { gte: checkInDate }
+                      }
+                    ]
                   }
                 ]
               }

@@ -10,6 +10,9 @@ import {
 import { container } from 'tsyringe';
 import { OfferController } from '../rideSharing/OfferController/OfferController';
 import AccommodationBookingController from '../accommodationBooking/accommodationBookingController';
+import PaymentController from '../payment/paymentController';
+import PaymentModel from '../../models/payment/paymentModel';
+import RoomModel from '../../models/room/roomModel';
 
 const prisma = new PrismaClient();
 
@@ -269,11 +272,20 @@ export const confirmBooking = async (req: Request, res: Response) => {
       selectedRoomAllocations,
       checkInDate,
       checkOutDate,
-      specialRequests
-    }: BookingConfirmationRequest = req.body;
+      specialRequests,
+      paymentMethod,
+      stripePaymentIntentId
+    }: BookingConfirmationRequest & { paymentMethod?: string; stripePaymentIntentId?: string } = req.body;
 
     if (!seatsNeeded || seatsNeeded < 1) {
       return res.status(400).json({ error: 'seatsNeeded is required and must be at least 1' });
+    }
+
+    // Validate payment info if accommodation booking is requested
+    if (accommodationId && selectedRoomAllocations && (!paymentMethod || !stripePaymentIntentId)) {
+      return res.status(400).json({ 
+        error: 'Payment information (paymentMethod and stripePaymentIntentId) is required for accommodation booking' 
+      });
     }
 
     const bookingResult: BookingConfirmationResponse = {
@@ -338,18 +350,53 @@ export const confirmBooking = async (req: Request, res: Response) => {
       }
     }
 
-    // Process accommodation bookings
+    // Process accommodation bookings with availability check and payment
     if (accommodationId && selectedRoomAllocations && checkInDate && checkOutDate) {
       try {
-        const accommodationBookings = await processAccommodationBookings(
+        // Check availability for all rooms first
+        const checkIn = new Date(checkInDate);
+        const checkOut = new Date(checkOutDate);
+        const roomModel = new RoomModel();
+        
+        for (const allocation of selectedRoomAllocations) {
+          const isAvailable = await roomModel.checkRoomAvailability(
+            allocation.roomId,
+            checkIn,
+            checkOut
+          );
+          
+          if (!isAvailable) {
+            const room = await prisma.room.findUnique({ where: { id: allocation.roomId } });
+            throw new Error(`Room "${room?.roomType || allocation.roomId}" is not available for the selected dates`);
+          }
+        }
+
+        // Create confirmed accommodation bookings after payment validation
+        const accommodationBookings = await processAccommodationBookingsWithPayment(
           userId,
           selectedRoomAllocations,
-          new Date(checkInDate),
-          new Date(checkOutDate)
+          checkIn,
+          checkOut,
+          stripePaymentIntentId!
         );
         
         bookingResult.bookings.accommodationBookings = accommodationBookings;
-        bookingResult.totalCost += accommodationBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+        const accommodationTotalCost = accommodationBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+        bookingResult.totalCost += accommodationTotalCost;
+
+        // Create payment records for tracking
+        const paymentModel = new PaymentModel();
+        for (const booking of accommodationBookings) {
+          await paymentModel.createPayment(
+            booking.totalPrice,
+            paymentMethod!,
+            `${stripePaymentIntentId}_booking_${booking.id}`,
+            booking.id,
+            'completed'
+          );
+        }
+        
+        console.log(`✅ ${accommodationBookings.length} accommodation booking(s) confirmed with payment processed`);
       } catch (error) {
         bookingResult.errors?.push(`Accommodation booking failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
@@ -474,13 +521,15 @@ async function processTransportationBooking(
 }
 
 /**
- * Process accommodation bookings using existing AccommodationBookingController
+ * Process accommodation bookings with confirmed status after payment
+ * Uses the createConfirmedBookingAfterPayment endpoint
  */
-async function processAccommodationBookings(
+async function processAccommodationBookingsWithPayment(
   userId: string,
   roomAllocations: { roomId: number; numberOfRooms: number }[],
   checkInDate: Date,
-  checkOutDate: Date
+  checkOutDate: Date,
+  stripePaymentIntentId: string
 ) {
   const bookings: Array<{
     id: number;
@@ -502,7 +551,7 @@ async function processAccommodationBookings(
       throw new Error(`Room ${allocation.roomId} not found`);
     }
 
-    // Create booking for each room using the existing controller
+    // Create confirmed booking for each room after payment
     for (let i = 0; i < allocation.numberOfRooms; i++) {
       const totalPrice = Number(room.pricePerNight) * numberOfNights;
 
@@ -513,7 +562,8 @@ async function processAccommodationBookings(
           roomId: allocation.roomId,
           checkInDate: checkInDate.toISOString(),
           checkOutDate: checkOutDate.toISOString(),
-          totalPrice: totalPrice
+          totalPrice: totalPrice,
+          paymentId: `${stripePaymentIntentId}_room_${allocation.roomId}_${i + 1}`
         }
       };
 
@@ -524,17 +574,17 @@ async function processAccommodationBookings(
             if (code === 201 && data.success) {
               bookingResult = data.data;
             } else {
-              throw new Error(data.message || 'Failed to create accommodation booking');
+              throw new Error(data.message || 'Failed to create confirmed accommodation booking');
             }
           }
         })
       };
 
-      // Use the existing createAccommodationBooking method
-      await accommodationBookingController.createAccommodationBooking(mockReq, mockRes);
+      // Use the createConfirmedBookingAfterPayment method (creates booking with confirmed status)
+      await accommodationBookingController.createConfirmedBookingAfterPayment(mockReq, mockRes);
 
       if (!bookingResult) {
-        throw new Error(`Failed to create booking for room ${allocation.roomId}`);
+        throw new Error(`Failed to create confirmed booking for room ${allocation.roomId}`);
       }
 
       bookings.push({
