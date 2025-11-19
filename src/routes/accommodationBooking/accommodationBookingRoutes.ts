@@ -138,4 +138,20 @@ router.patch(
   )
 );
 
+// Cancel booking and request refund (Traveler endpoint)
+router.delete(
+  "/:id/cancel-and-refund",
+  accommodationBookingController.cancelBookingAndRefund.bind(
+    accommodationBookingController
+  )
+);
+
+// Submit review for completed booking (Traveler endpoint)
+router.post(
+  "/:id/review",
+  accommodationBookingController.submitBookingReview.bind(
+    accommodationBookingController
+  )
+);
+
 module.exports = router;

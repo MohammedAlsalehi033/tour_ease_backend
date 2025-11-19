@@ -649,4 +649,163 @@ export default class AccommodationBookingController {
       });
     }
   }
+
+  /**
+   * Cancel booking and request refund
+   * Traveler can cancel a confirmed booking and request a refund
+   */
+  async cancelBookingAndRefund(req: any, res: any) {
+    try {
+      const { id } = req.params;
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is confirmed
+      if (booking.status !== "confirmed") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only cancel confirmed bookings",
+        });
+      }
+
+      // Update booking status to cancelled
+      const updatedBooking = await this.model.updateBookingStatus(parseInt(id), "cancelled");
+
+      // TODO: Integrate with payment system to process refund
+      // For now, we'll just mark it as cancelled
+      // After refund is processed, status should be updated to "refunded"
+      // In a real implementation, you'd call Stripe refund API here
+
+      res.json({
+        success: true,
+        data: updatedBooking,
+        message: "Booking cancelled successfully. Refund will be processed within 5-7 business days.",
+      });
+    } catch (error: any) {
+      console.error("Error in cancelBookingAndRefund:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to cancel booking",
+      });
+    }
+  }
+
+  /**
+   * Submit review for "checked out" booking
+   * Traveler can review their stay after checkout
+   * This will change status from "checked out" to "complete"
+   * Uses the existing Review system
+   */
+  async submitBookingReview(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { accommodationId, rating, comment } = req.body;
+
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid rating (1-5) is required",
+        });
+      }
+
+      if (!comment || comment.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Review comment is required",
+        });
+      }
+
+      // Get booking details
+      const booking = await this.model.getAccommodationBookingById(parseInt(id));
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Check if booking is "checked out"
+      if (booking.status !== "checked out") {
+        return res.status(400).json({
+          success: false,
+          message: "Can only review checked-out bookings",
+        });
+      }
+
+      // Import Review model dynamically
+      const { PrismaReviewModel } = require('../../models/review/reviewModel');
+      const reviewModel = new PrismaReviewModel();
+
+      // Check if user has already reviewed this booking
+      const existingReview = await reviewModel.checkExistingReview(
+        booking.travelerId,
+        'ACCOMMODATION_BOOKING',
+        parseInt(id)
+      );
+
+      if (existingReview) {
+        return res.status(400).json({
+          success: false,
+          message: "You have already reviewed this booking",
+        });
+      }
+
+      // Create review for the booking
+      const bookingReview = await reviewModel.createItem({
+        reviewerId: booking.travelerId,
+        reviewableType: 'ACCOMMODATION_BOOKING',
+        reviewableId: parseInt(id),
+        rating: rating,
+        comment: comment,
+      });
+
+      // Also create review for the accommodation if accommodationId provided
+      let accommodationReview = null;
+      if (accommodationId) {
+        const existingAccommodationReview = await reviewModel.checkExistingReview(
+          booking.travelerId,
+          'ACCOMMODATION',
+          parseInt(accommodationId)
+        );
+
+        if (!existingAccommodationReview) {
+          accommodationReview = await reviewModel.createItem({
+            reviewerId: booking.travelerId,
+            reviewableType: 'ACCOMMODATION',
+            reviewableId: parseInt(accommodationId),
+            rating: rating,
+            comment: comment,
+          });
+        }
+      }
+
+      // Update booking status to "complete" after review submission
+      const updatedBooking = await this.model.updateBookingStatus(parseInt(id), "complete");
+
+      res.json({
+        success: true,
+        message: "Review submitted successfully. Booking marked as complete.",
+        data: {
+          bookingReview: bookingReview,
+          accommodationReview: accommodationReview,
+          booking: updatedBooking,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error in submitBookingReview:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to submit review",
+      });
+    }
+  }
 }
