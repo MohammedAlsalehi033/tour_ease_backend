@@ -352,4 +352,65 @@ export default class RoomModel {
       throw error;
     }
   }
+
+  /**
+   * Debug booking data for accommodation
+   */
+  async debugBookingData(accommodationId: number): Promise<any> {
+    try {
+      const allBookings = await prisma.accommodationBooking.findMany({
+        where: {
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        include: {
+          room: {
+            select: {
+              id: true,
+              roomType: true,
+              accommodationId: true,
+            },
+          },
+        },
+      });
+
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        select: {
+          roomId: true,
+          status: true,
+          checkInDate: true,
+          checkOutDate: true,
+        },
+        distinct: ['roomId'],
+      });
+
+      const allRooms = await prisma.room.findMany({
+        where: { accommodationId },
+        select: {
+          id: true,
+          roomType: true,
+          pricePerNight: true,
+        },
+      });
+
+      return {
+        allBookings,
+        bookedRoomIds,
+        allRooms,
+        bookedIds: bookedRoomIds.map(b => b.roomId),
+      };
+    } catch (error) {
+      console.error("Error debugging booking data:", error);
+      throw error;
+    }
+  }
 }

@@ -143,6 +143,12 @@ router.get(
   roomController.checkRoomAvailability.bind(roomController)
 );
 
+// Debug booking data
+router.get(
+  "/accommodation/:accommodationId/debug-bookings",
+  roomController.debugBookings.bind(roomController)
+);
+
 // ==================== ACCOMMODATION BOOKING ROUTES ====================
 
 // Create accommodation booking
