@@ -119,10 +119,14 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get accommodation by ID (filters out booked rooms)
+   * Get accommodation by ID (filters out rooms with active/upcoming bookings)
    */
   async getAccommodationById(id: number): Promise<any | null> {
     try {
+      // Get the current date at start of day
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
       const accommodation = await prisma.accommodation.findUnique({
         where: { id },
         include: {
@@ -145,6 +149,10 @@ export default class AccommodationModel {
                 where: {
                   status: {
                     in: ["pending", "confirmed"],
+                  },
+                  // Only get active/upcoming bookings (checkOutDate > today)
+                  checkOutDate: {
+                    gt: now,
                   },
                 },
                 select: {
@@ -175,7 +183,7 @@ export default class AccommodationModel {
       
       if (!accommodation) return null;
       
-      // Filter out booked rooms
+      // Filter out rooms with active bookings
       const availableRooms = accommodation.rooms.filter((room: any) => room.bookings.length === 0);
       
       // Remove bookings array from response
@@ -218,6 +226,10 @@ export default class AccommodationModel {
     totalPages: number;
   }> {
     try {
+      // Get the current date at start of day
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
       const skip = (page - 1) * pageSize;
       const where: any = {};
 
@@ -254,6 +266,10 @@ export default class AccommodationModel {
                     status: {
                       in: ["pending", "confirmed"],
                     },
+                    // Only get active/upcoming bookings (checkOutDate > today)
+                    checkOutDate: {
+                      gt: now,
+                    },
                   },
                   select: {
                     id: true,
@@ -277,7 +293,7 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Calculate average rating and filter out booked rooms
+      // Calculate average rating and filter out rooms with active bookings
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
@@ -285,7 +301,7 @@ export default class AccommodationModel {
               acc.reviews.length
             : 0;
         
-        // Filter rooms to only show those with NO bookings
+        // Filter rooms to only show those with NO active bookings
         const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
         
         // Remove bookings array from response
@@ -377,6 +393,10 @@ export default class AccommodationModel {
     totalPages: number;
   }> {
     try {
+      // Get the current date at start of day
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
       const skip = (page - 1) * pageSize;
       const where = {
         location: { contains: location, mode: "insensitive" as const },
@@ -395,6 +415,10 @@ export default class AccommodationModel {
                   where: {
                     status: {
                       in: ["pending", "confirmed"],
+                    },
+                    // Only get active/upcoming bookings (checkOutDate > today)
+                    checkOutDate: {
+                      gt: now,
                     },
                   },
                   select: {
@@ -416,7 +440,7 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Filter out booked rooms
+      // Filter out rooms with active bookings
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
@@ -424,7 +448,7 @@ export default class AccommodationModel {
               acc.reviews.length
             : 0;
         
-        // Filter rooms to only show those with NO bookings
+        // Filter rooms to only show those with NO active bookings
         const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
         
         // Remove bookings array from response

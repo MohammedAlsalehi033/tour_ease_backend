@@ -244,11 +244,15 @@ export default class RoomModel {
   }
 
   /**
-   * Get rooms by accommodation (only rooms with NO bookings)
-   * Filters out rooms that have any confirmed or pending bookings
+   * Get rooms by accommodation (only rooms with NO active/upcoming bookings)
+   * Filters out rooms that have confirmed or pending bookings for today onwards
    */
   async getRoomsByAccommodation(accommodationId: number): Promise<any[]> {
     try {
+      // Get the current date at start of day
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
       // Get all rooms for this accommodation
       const rooms = await prisma.room.findMany({
         where: { accommodationId },
@@ -263,9 +267,15 @@ export default class RoomModel {
               status: {
                 in: ["pending", "confirmed"],
               },
+              // Only get bookings that haven't fully checked out yet (checkOutDate > today)
+              checkOutDate: {
+                gt: now,
+              },
             },
             select: {
               id: true,
+              checkInDate: true,
+              checkOutDate: true,
             },
           },
         },
@@ -274,7 +284,7 @@ export default class RoomModel {
         },
       });
 
-      // Filter rooms to include only those with NO bookings
+      // Filter rooms to include only those with NO active bookings
       const availableRooms = rooms.filter((room) => room.bookings.length === 0);
 
       const roomsWithRatings = availableRooms.map((room) => {
