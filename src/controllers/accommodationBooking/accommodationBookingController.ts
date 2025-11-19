@@ -712,7 +712,7 @@ export default class AccommodationBookingController {
   async submitBookingReview(req: any, res: any) {
     try {
       const { id } = req.params;
-      const { accommodationId, rating, comment } = req.body;
+      const { rating, comment } = req.body;
 
       console.log(`[Review Submission] Booking ID: ${id}, Rating: ${rating}, Has Comment: ${!!comment}`);
 
@@ -730,7 +730,7 @@ export default class AccommodationBookingController {
         });
       }
 
-      // Get booking details
+      // Get booking details (includes room and accommodation)
       const booking = await this.model.getAccommodationBookingById(parseInt(id));
       console.log(`[Review Submission] Booking found with status: ${booking?.status}`);
 
@@ -748,6 +748,17 @@ export default class AccommodationBookingController {
           message: `Can only review checked-out bookings. Current status: ${booking.status}`,
         });
       }
+
+      // Get accommodationId from the booking's room
+      const accommodationId = booking.room?.accommodation?.id;
+      if (!accommodationId) {
+        return res.status(500).json({
+          success: false,
+          message: "Could not find accommodation for this booking",
+        });
+      }
+
+      console.log(`[Review Submission] Accommodation ID: ${accommodationId}`);
 
       // Import Review model dynamically
       const { PrismaReviewModel } = require('../../models/review/reviewModel');
@@ -776,24 +787,27 @@ export default class AccommodationBookingController {
         comment: comment,
       });
 
-      // Also create review for the accommodation if accommodationId provided
-      let accommodationReview = null;
-      if (accommodationId) {
-        const existingAccommodationReview = await reviewModel.checkExistingReview(
-          booking.travelerId,
-          'ACCOMMODATION',
-          parseInt(accommodationId)
-        );
+      console.log(`[Review Submission] Booking review created successfully`);
 
-        if (!existingAccommodationReview) {
-          accommodationReview = await reviewModel.createItem({
-            reviewerId: booking.travelerId,
-            reviewableType: 'ACCOMMODATION',
-            reviewableId: parseInt(accommodationId),
-            rating: rating,
-            comment: comment,
-          });
-        }
+      // Also create review for the accommodation
+      let accommodationReview = null;
+      const existingAccommodationReview = await reviewModel.checkExistingReview(
+        booking.travelerId,
+        'ACCOMMODATION',
+        accommodationId
+      );
+
+      if (!existingAccommodationReview) {
+        accommodationReview = await reviewModel.createItem({
+          reviewerId: booking.travelerId,
+          reviewableType: 'ACCOMMODATION',
+          reviewableId: accommodationId,
+          rating: rating,
+          comment: comment,
+        });
+        console.log(`[Review Submission] Accommodation review created successfully`);
+      } else {
+        console.log(`[Review Submission] User already reviewed this accommodation`);
       }
 
       // Update booking status to "complete" after review submission
