@@ -658,21 +658,26 @@ export default class AccommodationBookingController {
     try {
       const { id } = req.params;
 
+      console.log(`[Cancel Booking] Attempting to cancel booking ID: ${id}`);
+
       // Get booking details
       const booking = await this.model.getAccommodationBookingById(parseInt(id));
 
       if (!booking) {
+        console.log(`[Cancel Booking] Booking ${id} not found`);
         return res.status(404).json({
           success: false,
           message: "Booking not found",
         });
       }
 
+      console.log(`[Cancel Booking] Booking ${id} found with status: ${booking.status}`);
+
       // Check if booking is confirmed
       if (booking.status !== "confirmed") {
         return res.status(400).json({
           success: false,
-          message: "Can only cancel confirmed bookings",
+          message: `Can only cancel confirmed bookings. Current status: ${booking.status}`,
         });
       }
 
@@ -709,6 +714,8 @@ export default class AccommodationBookingController {
       const { id } = req.params;
       const { accommodationId, rating, comment } = req.body;
 
+      console.log(`[Review Submission] Booking ID: ${id}, Rating: ${rating}, Has Comment: ${!!comment}`);
+
       if (!rating || rating < 1 || rating > 5) {
         return res.status(400).json({
           success: false,
@@ -725,6 +732,7 @@ export default class AccommodationBookingController {
 
       // Get booking details
       const booking = await this.model.getAccommodationBookingById(parseInt(id));
+      console.log(`[Review Submission] Booking found with status: ${booking?.status}`);
 
       if (!booking) {
         return res.status(404).json({
@@ -737,7 +745,7 @@ export default class AccommodationBookingController {
       if (booking.status !== "checked out") {
         return res.status(400).json({
           success: false,
-          message: "Can only review checked-out bookings",
+          message: `Can only review checked-out bookings. Current status: ${booking.status}`,
         });
       }
 

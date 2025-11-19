@@ -139,7 +139,7 @@ router.patch(
 );
 
 // Cancel booking and request refund (Traveler endpoint)
-router.delete(
+router.patch(
   "/:id/cancel-and-refund",
   accommodationBookingController.cancelBookingAndRefund.bind(
     accommodationBookingController
