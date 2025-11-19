@@ -119,7 +119,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get accommodation by ID
+   * Get accommodation by ID (filters out booked rooms)
    */
   async getAccommodationById(id: number): Promise<any | null> {
     try {
@@ -140,6 +140,18 @@ export default class AccommodationModel {
             },
           },
           rooms: {
+            include: {
+              bookings: {
+                where: {
+                  status: {
+                    in: ["pending", "confirmed"],
+                  },
+                },
+                select: {
+                  id: true,
+                },
+              },
+            },
             orderBy: {
               pricePerNight: "asc",
             },
@@ -160,7 +172,25 @@ export default class AccommodationModel {
           },
         },
       });
-      return this.transformAccommodationWithS3Urls(accommodation);
+      
+      if (!accommodation) return null;
+      
+      // Filter out booked rooms
+      const availableRooms = accommodation.rooms.filter((room: any) => room.bookings.length === 0);
+      
+      // Remove bookings array from response
+      const cleanedRooms = availableRooms.map((room: any) => {
+        const { bookings, ...roomData } = room;
+        return roomData;
+      });
+      
+      // Update accommodation with filtered rooms
+      const cleanedAccommodation = {
+        ...accommodation,
+        rooms: cleanedRooms,
+      };
+      
+      return this.transformAccommodationWithS3Urls(cleanedAccommodation);
     } catch (error) {
       console.error("Error getting accommodation:", error);
       throw error;
@@ -169,7 +199,6 @@ export default class AccommodationModel {
 
   /**
    * Get all accommodations with pagination and filters
-   * Only returns rooms with no confirmed bookings for the selected dates
    */
   async getAllAccommodations(
     page: number = 1,
@@ -219,6 +248,18 @@ export default class AccommodationModel {
               },
             },
             rooms: {
+              include: {
+                bookings: {
+                  where: {
+                    status: {
+                      in: ["pending", "confirmed"],
+                    },
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
+              },
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -236,45 +277,26 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Filter out rooms with confirmed bookings
-      const accommodationsWithAvailableRooms = await Promise.all(
-        accommodations.map(async (acc) => {
-          // Get all confirmed bookings for this accommodation's rooms
-          const confirmedBookings = await prisma.accommodationBooking.findMany({
-            where: {
-              room: {
-                accommodationId: acc.id,
-              },
-              status: "confirmed",
-            },
-            select: {
-              roomId: true,
-            },
-          });
-
-          const bookedRoomIds = new Set(confirmedBookings.map((b) => b.roomId));
-
-          // Filter out booked rooms
-          const availableRooms = acc.rooms.filter(
-            (room) => !bookedRoomIds.has(room.id)
-          );
-
-          return {
-            ...acc,
-            rooms: availableRooms,
-          };
-        })
-      );
-
-      // Calculate average rating for each accommodation
-      const accommodationsWithRatings = accommodationsWithAvailableRooms.map((acc) => {
+      // Calculate average rating and filter out booked rooms
+      const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
             ? acc.reviews.reduce((sum, r) => sum + r.rating, 0) /
               acc.reviews.length
             : 0;
+        
+        // Filter rooms to only show those with NO bookings
+        const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
+        
+        // Remove bookings array from response
+        const cleanedRooms = availableRooms.map((room: any) => {
+          const { bookings, ...roomData } = room;
+          return roomData;
+        });
+        
         return {
           ...acc,
+          rooms: cleanedRooms,
           averageRating: avgRating,
           reviewCount: acc.reviews.length,
         };
@@ -341,7 +363,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Search accommodations by location
+   * Search accommodations by location (filters out booked rooms)
    */
   async searchAccommodationsByLocation(
     location: string,
@@ -368,6 +390,18 @@ export default class AccommodationModel {
           include: {
             provider: true,
             rooms: {
+              include: {
+                bookings: {
+                  where: {
+                    status: {
+                      in: ["pending", "confirmed"],
+                    },
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
+              },
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -382,14 +416,26 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
+      // Filter out booked rooms
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
             ? acc.reviews.reduce((sum, r) => sum + r.rating, 0) /
               acc.reviews.length
             : 0;
+        
+        // Filter rooms to only show those with NO bookings
+        const availableRooms = acc.rooms.filter((room: any) => room.bookings.length === 0);
+        
+        // Remove bookings array from response
+        const cleanedRooms = availableRooms.map((room: any) => {
+          const { bookings, ...roomData } = room;
+          return roomData;
+        });
+        
         return {
           ...acc,
+          rooms: cleanedRooms,
           averageRating: avgRating,
           reviewCount: acc.reviews.length,
         };
