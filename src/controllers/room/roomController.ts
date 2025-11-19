@@ -225,4 +225,25 @@ export default class RoomController {
       });
     }
   }
+
+  /**
+   * Debug endpoint to see booking data
+   */
+  async debugBookings(req: any, res: any) {
+    try {
+      const { accommodationId } = req.params;
+      const debug = await this.model.debugBookingData(parseInt(accommodationId));
+      
+      res.json({
+        success: true,
+        data: debug,
+      });
+    } catch (error: any) {
+      console.error("Error in debugBookings:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to debug bookings",
+      });
+    }
+  }
 }

@@ -244,12 +244,39 @@ export default class RoomModel {
   }
 
   /**
-   * Get rooms by accommodation
+   * Get rooms by accommodation (only rooms with NO bookings at all)
+   * Excludes any rooms that have pending or confirmed bookings
    */
   async getRoomsByAccommodation(accommodationId: number): Promise<any[]> {
     try {
+      // First, get all room IDs that have active bookings
+      const bookedRooms = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        select: {
+          roomId: true,
+        },
+      });
+
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
+
+      // Get all rooms for this accommodation that are NOT in the booked list
       const rooms = await prisma.room.findMany({
-        where: { accommodationId },
+        where: { 
+          accommodationId,
+          ...(bookedIds.length > 0 ? {
+            id: {
+              notIn: bookedIds,
+            },
+          } : {}),
+        },
         include: {
           reviews: {
             select: {
@@ -268,6 +295,7 @@ export default class RoomModel {
             ? room.reviews.reduce((sum, r) => sum + r.rating, 0) /
               room.reviews.length
             : 0;
+        
         return {
           ...room,
           averageRating: avgRating,
@@ -323,6 +351,67 @@ export default class RoomModel {
       return conflictingBookings.length === 0;
     } catch (error) {
       console.error("Error checking room availability:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Debug booking data for accommodation
+   */
+  async debugBookingData(accommodationId: number): Promise<any> {
+    try {
+      const allBookings = await prisma.accommodationBooking.findMany({
+        where: {
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        include: {
+          room: {
+            select: {
+              id: true,
+              roomType: true,
+              accommodationId: true,
+            },
+          },
+        },
+      });
+
+      const bookedRoomIds = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: accommodationId,
+          },
+        },
+        select: {
+          roomId: true,
+          status: true,
+          checkInDate: true,
+          checkOutDate: true,
+        },
+        distinct: ['roomId'],
+      });
+
+      const allRooms = await prisma.room.findMany({
+        where: { accommodationId },
+        select: {
+          id: true,
+          roomType: true,
+          pricePerNight: true,
+        },
+      });
+
+      return {
+        allBookings,
+        bookedRoomIds,
+        allRooms,
+        bookedIds: bookedRoomIds.map(b => b.roomId),
+      };
+    } catch (error) {
+      console.error("Error debugging booking data:", error);
       throw error;
     }
   }

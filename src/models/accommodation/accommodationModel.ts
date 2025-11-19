@@ -119,10 +119,28 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get accommodation by ID
+   * Get accommodation by ID (excludes rooms with any bookings)
    */
   async getAccommodationById(id: number): Promise<any | null> {
     try {
+      // First get room IDs that have active bookings for this accommodation
+      const bookedRooms = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+          room: {
+            accommodationId: id,
+          },
+        },
+        select: {
+          roomId: true,
+        },
+      });
+
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
+
       const accommodation = await prisma.accommodation.findUnique({
         where: { id },
         include: {
@@ -140,6 +158,11 @@ export default class AccommodationModel {
             },
           },
           rooms: {
+            where: bookedIds.length > 0 ? {
+              id: {
+                notIn: bookedIds,
+              },
+            } : {},
             orderBy: {
               pricePerNight: "asc",
             },
@@ -160,6 +183,9 @@ export default class AccommodationModel {
           },
         },
       });
+      
+      if (!accommodation) return null;
+      
       return this.transformAccommodationWithS3Urls(accommodation);
     } catch (error) {
       console.error("Error getting accommodation:", error);
@@ -168,7 +194,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Get all accommodations with pagination and filters
+   * Get all accommodations with pagination and filters (excludes rooms with bookings)
    */
   async getAllAccommodations(
     page: number = 1,
@@ -203,6 +229,21 @@ export default class AccommodationModel {
         }
       }
 
+      // Get all booked room IDs
+      const bookedRooms = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+        },
+        select: {
+          roomId: true,
+        },
+      });
+
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
+
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
           where,
@@ -218,6 +259,11 @@ export default class AccommodationModel {
               },
             },
             rooms: {
+              where: bookedIds.length > 0 ? {
+                id: {
+                  notIn: bookedIds,
+                },
+              } : {},
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -235,13 +281,14 @@ export default class AccommodationModel {
         prisma.accommodation.count({ where }),
       ]);
 
-      // Calculate average rating for each accommodation
+      // Calculate average rating
       const accommodationsWithRatings = accommodations.map((acc) => {
         const avgRating =
           acc.reviews.length > 0
             ? acc.reviews.reduce((sum, r) => sum + r.rating, 0) /
               acc.reviews.length
             : 0;
+        
         return {
           ...acc,
           averageRating: avgRating,
@@ -310,7 +357,7 @@ export default class AccommodationModel {
   }
 
   /**
-   * Search accommodations by location
+   * Search accommodations by location (excludes rooms with bookings)
    */
   async searchAccommodationsByLocation(
     location: string,
@@ -329,6 +376,21 @@ export default class AccommodationModel {
         location: { contains: location, mode: "insensitive" as const },
       };
 
+      // Get all booked room IDs
+      const bookedRooms = await prisma.accommodationBooking.findMany({
+        where: {
+          status: {
+            in: ["pending", "confirmed"],
+          },
+        },
+        select: {
+          roomId: true,
+        },
+      });
+
+      // Get unique room IDs using Set
+      const bookedIds = Array.from(new Set(bookedRooms.map(b => b.roomId)));
+
       const [accommodations, total] = await Promise.all([
         prisma.accommodation.findMany({
           where,
@@ -337,6 +399,11 @@ export default class AccommodationModel {
           include: {
             provider: true,
             rooms: {
+              where: bookedIds.length > 0 ? {
+                id: {
+                  notIn: bookedIds,
+                },
+              } : {},
               orderBy: {
                 pricePerNight: "asc",
               },
@@ -357,6 +424,7 @@ export default class AccommodationModel {
             ? acc.reviews.reduce((sum, r) => sum + r.rating, 0) /
               acc.reviews.length
             : 0;
+        
         return {
           ...acc,
           averageRating: avgRating,
