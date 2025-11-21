@@ -1,7 +1,7 @@
 import TransportationProviderModel from '../../models/user/TransportationProviderModel';
 import { FileUploader, FileUploaderForS3 } from '../../utils/FileUploader';
 import {UserRole} from '../../Types/myEnum';
-import { da } from '@faker-js/faker/.';
+import { Request, Response } from 'express';
 
 export class TransportationProviderController {
 
@@ -13,9 +13,11 @@ export class TransportationProviderController {
         this.fileUploader = fileUploader;
     }
 
-    async createTransportationProvider(req, res) {
+    async createTransportationProvider(req: Request, res: Response) {
         const { id, role, seatsAvailable, vehicleType } = req.body;
-        const { licenseMedia, vehicleMedia } = req.files;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const licenseMedia = files?.licenseMedia || [];
+        const vehicleMedia = files?.vehicleMedia || [];
 
         try {
         let newTransportationProvider : any = await this.transportationProviderModel.getUserById(id);
@@ -60,7 +62,7 @@ export class TransportationProviderController {
 }
 
 
-    async getTransportationProviderById(req, res) {
+    async getTransportationProviderById(req: Request, res: Response) {
         const { id } = req.params;
         try {
             const transportationProvider = await this.transportationProviderModel.getTransportationProviderById(id);
@@ -73,5 +75,56 @@ export class TransportationProviderController {
         }
     }
 
+    async updateTransportationProvider(req: Request, res: Response) {
+        const { id } = req.params;
+        const { seatsAvailable, vehicleType } = req.body;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const licenseMedia = files?.licenseMedia || [];
+        const vehicleMedia = files?.vehicleMedia || [];
+
+        try {
+            let transportationProvider: any = await this.transportationProviderModel.getTransportationProviderById(id);
+
+            if (!transportationProvider) {
+                return res.status(404).json({ success: false, message: 'Transportation provider not found' });
+            }
+
+            // Delete existing pictures from S3
+            const deletePromises = [
+                ...transportationProvider.licenseMmediaUrls.map((key: string) => this.fileUploader.deleteFile(key)),
+                ...transportationProvider.vehicleMediaUrls.map((key: string) => this.fileUploader.deleteFile(key))
+            ];
+            await Promise.all(deletePromises).catch(err => console.error('Error deleting files:', err));
+
+            // Upload new pictures
+            const licenseMediaUploadPromises = licenseMedia.map(async (mediaFile: any) => {
+                const uploadResult = await this.fileUploader.uploadFile(mediaFile, "licenseMedia", transportationProvider.provider?.username || 'user');
+                return uploadResult.key;
+            });
+            const licenseMediaUrls = await Promise.all(licenseMediaUploadPromises);
+
+            const vehicleMediaUploadPromises = vehicleMedia.map(async (mediaFile: any) => {
+                const uploadResult = await this.fileUploader.uploadFile(mediaFile, "vehicleMedia", transportationProvider.provider?.username || 'user');
+                return uploadResult.key;
+            });
+            const vehicleMediaUrls = await Promise.all(vehicleMediaUploadPromises);
+
+            transportationProvider = await this.transportationProviderModel.updateTransportationProvider(
+                id,
+                licenseMediaUrls,
+                vehicleMediaUrls,
+                seatsAvailable,
+                vehicleType,
+                'pending' // Resetting account status to pending
+            );
+
+            return res.status(200).json({
+                success: true,
+                data: transportationProvider,
+            });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
 
 }

@@ -2,14 +2,19 @@ export {};
 import UserController from "../controllers/userController";
 import UserModel from "../models/userModel";
 import multer from 'multer';
-
 import express from 'express';
+import { TransportationProviderController } from '../controllers/user/trasportationProviderController';
+import TransportationProviderModel from '../models/user/TransportationProviderModel';
+import { FileUploaderForS3 } from '../utils/FileUploader';
+import adminMiddleware from '../middleware/adminsMiddleware';
+
 const router = express.Router();
-import { FileUploaderForS3 } from "../utils/FileUploader";
-import adminMiddleware from "../middleware/adminsMiddleware";
 const fileUploaderForS3 = new FileUploaderForS3();
 const userController = new UserController(new UserModel, fileUploaderForS3);
-
+const transportationProviderController = new TransportationProviderController(
+    new TransportationProviderModel(),
+    fileUploaderForS3
+);
 
 const upload = multer({ 
     dest: 'uploads/temp/',
@@ -42,6 +47,12 @@ router.post(
     '/profile-picture/:id?', 
     upload.single('profilePicture'), 
     userController.updateProfilePicture.bind(userController)
+);
+
+router.put(
+    '/transportation-provider/:id',
+    upload.fields([{ name: 'licenseMedia', maxCount: 5 }, { name: 'vehicleMedia', maxCount: 5 }]),
+    (req, res) => transportationProviderController.updateTransportationProvider(req, res)
 );
 
 // router.get('/questions/:id', questionController.getQuestionById);

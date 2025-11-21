@@ -137,5 +137,23 @@ async getTransportationProviderById(id: string): Promise<TransportationProvider>
         }
     }
     
+    async updateTransportationProvider(id: string, licenseMediaUrls: string[], vehicleMediaUrls: string[], seatsAvailable: number, vehicleType: string, status: string) {
+        try {
+            const updatedProvider = await prisma.transportationProvider.update({
+                where: { providerId: id },
+                data: {
+                    licenseMmediaUrls: licenseMediaUrls,
+                    vehicleMediaUrls: vehicleMediaUrls,
+                    seatsAvailable: parseInt(seatsAvailable.toString()),
+                    vehicleType,
+                    accountStatus: status,
+                },
+            });
+            return updatedProvider;
+        } catch (error) {
+            console.error("Error updating transportation provider:", error);
+            throw error;
+        }
+    }
 
 }
