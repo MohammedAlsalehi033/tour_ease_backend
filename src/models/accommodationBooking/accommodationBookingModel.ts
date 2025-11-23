@@ -66,10 +66,31 @@ export default class AccommodationBookingModel {
     totalPrice: number,
     transactionId: string // Stripe payment intent ID or transaction ID
   ): Promise<AccommodationBooking> {
+    console.log(`\n========== CREATE CONFIRMED BOOKING ==========`);
+    console.log(`[Input] Traveler ID: ${travelerId}`);
+    console.log(`[Input] Room ID: ${roomId}`);
+    console.log(`[Input] Check-in: ${checkInDate}`);
+    console.log(`[Input] Check-out: ${checkOutDate}`);
+    console.log(`[Input] Total Price: ${totalPrice}`);
+    console.log(`[Input] Transaction ID: ${transactionId}`);
+    
     try {
+      // Check if payment with this transactionId already exists
+      const existingPayment = await prisma.payment.findUnique({
+        where: { transactionId },
+      });
+      
+      if (existingPayment) {
+        console.log(`[Payment] ⚠️ Payment with transactionId ${transactionId} already exists (ID: ${existingPayment.id})`);
+        throw new Error(`Payment with transaction ID ${transactionId} already exists`);
+      }
+      
       // Use transaction to ensure both booking and payment are created together
       const result = await prisma.$transaction(async (tx) => {
+        console.log(`[Transaction] Starting database transaction...`);
+        
         // Create the booking
+        console.log(`[Booking] Creating accommodation booking...`);
         const booking = await tx.accommodationBooking.create({
           data: {
             travelerId,
@@ -80,21 +101,29 @@ export default class AccommodationBookingModel {
             status: "confirmed", // Create directly with confirmed status, NOT pending
           },
         });
+        console.log(`[Booking] ✅ Booking created with ID: ${booking.id}`);
 
         // Create payment record linked to the booking
-        console.log(`[Payment] Creating payment record for booking ID: ${booking.id}, transactionId: ${transactionId}, amount: ${totalPrice}`);
+        console.log(`[Payment] Creating payment record...`);
+        console.log(`[Payment] - Booking ID: ${booking.id}`);
+        console.log(`[Payment] - Transaction ID: ${transactionId}`);
+        console.log(`[Payment] - Amount: ${totalPrice}`);
+        console.log(`[Payment] - Method: stripe`);
+        console.log(`[Payment] - Status: completed`);
+        
         const payment = await tx.payment.create({
           data: {
             amount: new Decimal(totalPrice),
-            paymentMethod: "stripe", // Default to stripe, can be customized later
-            status: "completed", // Payment already succeeded
-            transactionId: transactionId, // Stripe payment intent ID
+            paymentMethod: "stripe",
+            status: "completed",
+            transactionId: transactionId,
             accommodationBookingId: booking.id,
           },
         });
-        console.log(`[Payment] ✅ Payment record created successfully with ID: ${payment.id}`);
+        console.log(`[Payment] ✅ Payment record created with ID: ${payment.id}`);
 
         // Fetch the complete booking with all relations
+        console.log(`[Booking] Fetching complete booking data with relations...`);
         const completeBooking = await tx.accommodationBooking.findUnique({
           where: { id: booking.id },
           include: {
@@ -119,13 +148,25 @@ export default class AccommodationBookingModel {
           },
         });
 
+        console.log(`[Transaction] ✅ Transaction completed successfully`);
         return completeBooking!;
       });
 
-      console.log(`✅ Confirmed booking created with payment record (Transaction ID: ${transactionId})`);
+      console.log(`========== SUCCESS ==========`);
+      console.log(`Booking ID: ${result.id}`);
+      console.log(`Payment ID: ${result.payment?.id}`);
+      console.log(`Transaction ID: ${transactionId}`);
+      console.log(`========================================\n`);
+      
       return result;
-    } catch (error) {
-      console.error("Error creating confirmed booking with payment:", error);
+    } catch (error: any) {
+      console.error(`\n========== ERROR ==========`);
+      console.error(`[Error] Failed to create confirmed booking with payment`);
+      console.error(`[Error] Transaction ID: ${transactionId}`);
+      console.error(`[Error] Message: ${error.message}`);
+      console.error(`[Error] Code: ${error.code}`);
+      console.error(`[Error] Stack:`, error.stack);
+      console.error(`========================================\n`);
       throw error;
     }
   }
