@@ -68,9 +68,17 @@ export default class AccommodationModel {
           : Promise.resolve([]),
       ]);
 
+      // Calculate review statistics
+      const reviewCount = accommodation.reviews?.length || 0;
+      const averageRating = reviewCount > 0
+        ? accommodation.reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviewCount
+        : 0;
+
       return {
         ...accommodation,
         mediaUrls: accommodationMediaUrls,
+        reviewCount,
+        averageRating: parseFloat(averageRating.toFixed(2)),
         provider: accommodation.provider ? {
           ...accommodation.provider,
           user: accommodation.provider.user ? {
