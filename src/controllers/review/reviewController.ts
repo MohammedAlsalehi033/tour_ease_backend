@@ -110,47 +110,11 @@ export class ReviewController {
           });
           reviews.push(driverReview);
         }
-      } else if (reviewableType === 'ACCOMMODATION_BOOKING') {
-        console.log('🎯 DUAL REVIEW MODE: Creating 2 reviews for accommodation booking');
-        // First, create the booking review
-        const bookingReview = await reviewModel.createItem({
-          reviewerId,
-          reviewableType: 'ACCOMMODATION_BOOKING',
-          reviewableId: parseInt(reviewableId),
-          rating,
-          comment,
-        });
-        reviews.push(bookingReview);
-        console.log('✅ Created accommodation booking review:', bookingReview.id);
-
-        // Then, get the booking to find the accommodation
-        const booking = await prisma.accommodationBooking.findUnique({
-          where: { id: parseInt(reviewableId) },
-          include: {
-            room: {
-              include: {
-                accommodation: true
-              }
-            }
-          }
-        });
-
-        if (booking && booking.room?.accommodation) {
-          const accommodationReview = await reviewModel.createItem({
-            reviewerId,
-            reviewableType: 'ACCOMMODATION',
-            reviewableId: parseInt(booking.room.accommodation.id.toString()),
-            rating,
-            comment,
-            accommodationBookingId: parseInt(reviewableId), // Link to booking
-          });
-          reviews.push(accommodationReview);
-          console.log('✅ Created accommodation review with booking association:', accommodationReview.id);
-        }
       } else if (reviewableType === 'ACCOMMODATION' && accommodationBookingId) {
-        console.log('🎯 DUAL REVIEW MODE: Creating 2 reviews for accommodation (from booking context)');
-        // When reviewing accommodation from a booking, create TWO reviews:
-        // 1. Review for the accommodation (with booking association)
+        // DUAL REVIEW: Just like TRANSPORTATION_BOOKING creates 2 reviews
+        // When user reviews from booking (checked-out), create 2 reviews
+        
+        // 1. Create the ACCOMMODATION review (like TRANSPORTATION_BOOKING)
         const accommodationReview = await reviewModel.createItem({
           reviewerId,
           reviewableType: 'ACCOMMODATION',
@@ -160,9 +124,8 @@ export class ReviewController {
           accommodationBookingId: parseInt(accommodationBookingId),
         });
         reviews.push(accommodationReview);
-        console.log('✅ Created accommodation review with booking association:', accommodationReview.id);
 
-        // 2. Review for the accommodation booking itself (this is the missing one!)
+        // 2. Create the ACCOMMODATION_BOOKING review (like TRANSPORTATION_PROVIDER)
         const bookingReview = await reviewModel.createItem({
           reviewerId,
           reviewableType: 'ACCOMMODATION_BOOKING',
@@ -171,11 +134,8 @@ export class ReviewController {
           comment,
         });
         reviews.push(bookingReview);
-        console.log('✅ Created accommodation booking review:', bookingReview.id);
       } else if (reviewableType === 'ACCOMMODATION') {
-        console.log('⚠️ SINGLE REVIEW MODE: No accommodationBookingId provided');
-        console.log('   This happens when reviewing accommodation directly (not from booking)');
-        // Single review case - reviewing accommodation directly without booking context
+        // Single review - no booking context
         const review = await reviewModel.createItem({
           reviewerId,
           reviewableType,
@@ -183,7 +143,6 @@ export class ReviewController {
           rating,
           comment,
         });
-        console.log('✅ Review created with ID:', review.id);
         reviews.push(review);
       } else {
         // Default case for single review
