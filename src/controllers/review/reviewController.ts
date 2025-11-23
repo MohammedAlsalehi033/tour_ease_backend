@@ -111,6 +111,7 @@ export class ReviewController {
           reviews.push(driverReview);
         }
       } else if (reviewableType === 'ACCOMMODATION' && accommodationBookingId) {
+        console.log('🎯 DUAL REVIEW MODE: Creating 2 reviews for accommodation booking');
         // When reviewing accommodation from a booking, create TWO reviews:
         // 1. Review for the accommodation (with booking association)
         const accommodationReview = await reviewModel.createItem({
@@ -134,6 +135,29 @@ export class ReviewController {
         });
         reviews.push(bookingReview);
         console.log('✅ Created accommodation booking review:', bookingReview.id);
+      } else if (reviewableType === 'ACCOMMODATION') {
+        console.log('⚠️ SINGLE REVIEW MODE: No accommodationBookingId provided');
+        console.log('   This happens when reviewing accommodation directly (not from booking)');
+        // Default case for single review
+        const reviewData: any = {
+          reviewerId,
+          reviewableType,
+          reviewableId: parseInt(reviewableId),
+          rating,
+          comment,
+        };
+        
+        // Add accommodationBookingId if provided
+        if (accommodationBookingId) {
+          reviewData.accommodationBookingId = parseInt(accommodationBookingId);
+          console.log('✅ accommodationBookingId added to reviewData:', reviewData.accommodationBookingId);
+        }
+        
+        console.log('Final reviewData:', JSON.stringify(reviewData, null, 2));
+        const review = await reviewModel.createItem(reviewData);
+        console.log('✅ Review created with ID:', review.id);
+        console.log('   accommodationBookingId in DB:', review.accommodationBookingId || 'NOT SET');
+        reviews.push(review);
       } else {
         // Default case for single review
         const reviewData: any = {
