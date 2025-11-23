@@ -2,6 +2,7 @@ export {};
 import express from "express";
 import AccommodationBookingController from "../../controllers/accommodationBooking/accommodationBookingController";
 import AccommodationBookingModel from "../../models/accommodationBooking/accommodationBookingModel";
+import authMiddleware from '../../middleware/authMiddleware';
 
 const router = express.Router();
 const accommodationBookingModel = new AccommodationBookingModel();

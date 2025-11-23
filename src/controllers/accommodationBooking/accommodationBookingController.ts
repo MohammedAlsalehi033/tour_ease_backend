@@ -361,7 +361,7 @@ export default class AccommodationBookingController {
       if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !paymentIdentifier) {
         return res.status(400).json({
           success: false,
-          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and transactionId (or paymentId) are required",
+          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and payment ID are required",
         });
       }
 
