@@ -353,30 +353,31 @@ export default class AccommodationBookingController {
    */
   async createConfirmedBookingAfterPayment(req: any, res: any) {
     try {
-      const { travelerId, roomId, checkInDate, checkOutDate, totalPrice, paymentId } = req.body;
+      const { travelerId, roomId, checkInDate, checkOutDate, totalPrice, transactionId } = req.body;
 
       // Validate required fields
-      if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !paymentId) {
+      if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !transactionId) {
         return res.status(400).json({
           success: false,
-          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and paymentId are required",
+          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and transactionId are required",
         });
       }
 
       // Create booking directly with confirmed status (bypassing pending status)
+      // This also creates a Payment record in the database
       const booking = await this.model.createConfirmedBooking(
         travelerId,
         parseInt(roomId),
         new Date(checkInDate),
         new Date(checkOutDate),
         parseFloat(totalPrice),
-        paymentId
+        transactionId // Stripe payment intent ID or transaction ID
       );
 
       res.status(201).json({
         success: true,
         data: booking,
-        message: "Confirmed booking created successfully after payment",
+        message: "Confirmed booking created successfully with payment record",
       });
     } catch (error: any) {
       console.error("Error in createConfirmedBookingAfterPayment:", error);

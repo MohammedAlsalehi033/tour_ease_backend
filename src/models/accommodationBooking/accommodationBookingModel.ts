@@ -64,43 +64,66 @@ export default class AccommodationBookingModel {
     checkInDate: Date,
     checkOutDate: Date,
     totalPrice: number,
-    paymentId: string // For reference only, not stored in DB
+    transactionId: string // Stripe payment intent ID or transaction ID
   ): Promise<AccommodationBooking> {
     try {
-      const booking = await prisma.accommodationBooking.create({
-        data: {
-          travelerId,
-          roomId,
-          checkInDate,
-          checkOutDate,
-          totalPrice: new Decimal(totalPrice),
-          status: "confirmed", // Create directly with confirmed status, NOT pending
-          // paymentId is passed for reference but we don't store it in the booking table
-        },
-        include: {
-          room: {
-            include: {
-              accommodation: {
-                include: {
-                  provider: true,
+      // Use transaction to ensure both booking and payment are created together
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the booking
+        const booking = await tx.accommodationBooking.create({
+          data: {
+            travelerId,
+            roomId,
+            checkInDate,
+            checkOutDate,
+            totalPrice: new Decimal(totalPrice),
+            status: "confirmed", // Create directly with confirmed status, NOT pending
+          },
+        });
+
+        // Create payment record linked to the booking
+        await tx.payment.create({
+          data: {
+            amount: new Decimal(totalPrice),
+            paymentMethod: "stripe", // Default to stripe, can be customized later
+            status: "completed", // Payment already succeeded
+            transactionId: transactionId, // Stripe payment intent ID
+            accommodationBookingId: booking.id,
+          },
+        });
+
+        // Fetch the complete booking with all relations
+        const completeBooking = await tx.accommodationBooking.findUnique({
+          where: { id: booking.id },
+          include: {
+            room: {
+              include: {
+                accommodation: {
+                  include: {
+                    provider: true,
+                  },
                 },
               },
             },
-          },
-          traveler: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              phoneNumber: true,
+            traveler: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phoneNumber: true,
+              },
             },
+            payment: true, // Include payment info
           },
-        },
+        });
+
+        return completeBooking!;
       });
-      console.log(`✅ Confirmed booking created after successful payment (Payment ID: ${paymentId})`);
-      return booking;
+
+      console.log(`✅ Confirmed booking created with payment record (Transaction ID: ${transactionId})`);
+      return result;
     } catch (error) {
-      console.error("Error creating confirmed booking:", error);
+      console.error("Error creating confirmed booking with payment:", error);
       throw error;
     }
   }
