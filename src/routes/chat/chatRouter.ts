@@ -21,13 +21,13 @@ export const createChatRouter = (io, connectedUsers) => {
   );
   
   // Get all unique chat partners for a user
-  router.get("/chats/:userId",authMiddleware(["traveler"]) ,messageController.getChatsForUser.bind(messageController));
+  router.get("/chats/:userId",authMiddleware(["traveler", "accommodationProvider", "transportationProvider"]) ,messageController.getChatsForUser.bind(messageController));
   
   // Get messages between two specific users (with pagination and sorting)
-  router.get("/messages",authMiddleware(["traveler"]), messageController.getMessagesBetweenUsers.bind(messageController));
+  router.get("/messages",authMiddleware(["traveler", "accommodationProvider", "transportationProvider"]), messageController.getMessagesBetweenUsers.bind(messageController));
   
   // Send a new message
-  router.post("/messages",authMiddleware(["traveler"]), messageController.sendMessage.bind(messageController));
+  router.post("/messages",authMiddleware(["traveler", "accommodationProvider", "transportationProvider"]), messageController.sendMessage.bind(messageController));
   
   // Delete a specific message by ID
   router.delete("/messages/:id", messageController.deleteMessage.bind(messageController));
