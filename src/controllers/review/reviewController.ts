@@ -17,6 +17,15 @@ export class ReviewController {
         accommodationBookingId, // Extract accommodation booking ID if provided
       } = req.body;
 
+      // DEBUG LOGGING - Remove after testing
+      console.log('==========================================');
+      console.log('📝 REVIEW CREATION REQUEST');
+      console.log('reviewableType:', reviewableType);
+      console.log('reviewableId:', reviewableId);
+      console.log('accommodationBookingId:', accommodationBookingId);
+      console.log('Full request body:', JSON.stringify(req.body, null, 2));
+      console.log('==========================================');
+
       const reviewerId = req.user?.id;
       if (!reviewerId) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -101,7 +110,32 @@ export class ReviewController {
           });
           reviews.push(driverReview);
         }
+      } else if (reviewableType === 'ACCOMMODATION' && accommodationBookingId) {
+        // When reviewing accommodation from a booking, create TWO reviews:
+        // 1. Review for the accommodation (with booking association)
+        const accommodationReview = await reviewModel.createItem({
+          reviewerId,
+          reviewableType: 'ACCOMMODATION',
+          reviewableId: parseInt(reviewableId),
+          rating,
+          comment,
+          accommodationBookingId: parseInt(accommodationBookingId),
+        });
+        reviews.push(accommodationReview);
+        console.log('✅ Created accommodation review with booking association:', accommodationReview.id);
+
+        // 2. Review for the accommodation booking itself
+        const bookingReview = await reviewModel.createItem({
+          reviewerId,
+          reviewableType: 'ACCOMMODATION_BOOKING',
+          reviewableId: parseInt(accommodationBookingId),
+          rating,
+          comment,
+        });
+        reviews.push(bookingReview);
+        console.log('✅ Created accommodation booking review:', bookingReview.id);
       } else {
+        // Default case for single review
         const reviewData: any = {
           reviewerId,
           reviewableType,
@@ -110,12 +144,16 @@ export class ReviewController {
           comment,
         };
         
-        // Add accommodationBookingId if provided (for accommodation reviews)
+        // Add accommodationBookingId if provided
         if (accommodationBookingId) {
           reviewData.accommodationBookingId = parseInt(accommodationBookingId);
+          console.log('✅ accommodationBookingId added to reviewData:', reviewData.accommodationBookingId);
         }
         
+        console.log('Final reviewData:', JSON.stringify(reviewData, null, 2));
         const review = await reviewModel.createItem(reviewData);
+        console.log('✅ Review created with ID:', review.id);
+        console.log('   accommodationBookingId in DB:', review.accommodationBookingId || 'NOT SET');
         reviews.push(review);
       }
 
