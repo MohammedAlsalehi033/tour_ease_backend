@@ -28,17 +28,15 @@ router.get(
   reviewController.searchReviews.bind(reviewController)
 );
 
-// Get reviews for a specific reviewable item
+// Get reviews for a specific reviewable item (PUBLIC - no auth required)
 router.get(
   '/item/:reviewableType/:reviewableId',
-  authMiddleware(),
   reviewController.getReviewsByItem.bind(reviewController)
 );
 
-// Get review statistics for an item
+// Get review statistics for an item (PUBLIC - no auth required)
 router.get(
   '/stats/:reviewableType/:reviewableId',
-  authMiddleware(),
   reviewController.getReviewStats.bind(reviewController)
 );
 

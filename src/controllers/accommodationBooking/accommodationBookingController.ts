@@ -353,15 +353,23 @@ export default class AccommodationBookingController {
    */
   async createConfirmedBookingAfterPayment(req: any, res: any) {
     try {
-      const { travelerId, roomId, checkInDate, checkOutDate, totalPrice, transactionId } = req.body;
+      // Support both old (paymentId) and new (transactionId) field names for backward compatibility
+      const { travelerId, roomId, checkInDate, checkOutDate, totalPrice, transactionId, paymentId } = req.body;
+      const paymentIdentifier = transactionId || paymentId; // Use transactionId if provided, fallback to paymentId
 
       // Validate required fields
-      if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !transactionId) {
+      if (!travelerId || !roomId || !checkInDate || !checkOutDate || !totalPrice || !paymentIdentifier) {
         return res.status(400).json({
           success: false,
-          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and transactionId are required",
+          message: "travelerId, roomId, checkInDate, checkOutDate, totalPrice, and transactionId (or paymentId) are required",
         });
       }
+
+      console.log(`[Booking] Creating confirmed booking with payment`);
+      console.log(`[Booking] Transaction ID: ${paymentIdentifier}`);
+      console.log(`[Booking] Traveler ID: ${travelerId}`);
+      console.log(`[Booking] Room ID: ${roomId}`);
+      console.log(`[Booking] Total Price: ${totalPrice}`);
 
       // Create booking directly with confirmed status (bypassing pending status)
       // This also creates a Payment record in the database
@@ -371,8 +379,11 @@ export default class AccommodationBookingController {
         new Date(checkInDate),
         new Date(checkOutDate),
         parseFloat(totalPrice),
-        transactionId // Stripe payment intent ID or transaction ID
+        paymentIdentifier // Stripe payment intent ID or transaction ID
       );
+
+      console.log(`[Booking] Successfully created booking ID: ${booking.id}`);
+      console.log(`[Booking] Payment record created and linked`);
 
       res.status(201).json({
         success: true,
