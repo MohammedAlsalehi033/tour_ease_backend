@@ -82,7 +82,8 @@ export default class AccommodationBookingModel {
         });
 
         // Create payment record linked to the booking
-        await tx.payment.create({
+        console.log(`[Payment] Creating payment record for booking ID: ${booking.id}, transactionId: ${transactionId}, amount: ${totalPrice}`);
+        const payment = await tx.payment.create({
           data: {
             amount: new Decimal(totalPrice),
             paymentMethod: "stripe", // Default to stripe, can be customized later
@@ -91,6 +92,7 @@ export default class AccommodationBookingModel {
             accommodationBookingId: booking.id,
           },
         });
+        console.log(`[Payment] ✅ Payment record created successfully with ID: ${payment.id}`);
 
         // Fetch the complete booking with all relations
         const completeBooking = await tx.accommodationBooking.findUnique({
