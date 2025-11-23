@@ -14,6 +14,7 @@ export class ReviewController {
         reviewableId,
         rating,
         comment,
+        accommodationBookingId, // Extract accommodation booking ID if provided
       } = req.body;
 
       const reviewerId = req.user?.id;
@@ -101,13 +102,20 @@ export class ReviewController {
           reviews.push(driverReview);
         }
       } else {
-        const review = await reviewModel.createItem({
+        const reviewData: any = {
           reviewerId,
           reviewableType,
           reviewableId: parseInt(reviewableId),
           rating,
           comment,
-        });
+        };
+        
+        // Add accommodationBookingId if provided (for accommodation reviews)
+        if (accommodationBookingId) {
+          reviewData.accommodationBookingId = parseInt(accommodationBookingId);
+        }
+        
+        const review = await reviewModel.createItem(reviewData);
         reviews.push(review);
       }
 

@@ -150,6 +150,10 @@ export class PrismaReviewModel extends BaseReviewModel<Review> {
         break;
       case "ACCOMMODATION":
         reviewData.accommodationId = data.reviewableId;
+        // Also add accommodationBookingId if provided (to associate review with specific booking)
+        if (data.accommodationBookingId) {
+          reviewData.accommodationBookingId = data.accommodationBookingId;
+        }
         break;
       case "ROOM":
         reviewData.roomId = data.reviewableId;
