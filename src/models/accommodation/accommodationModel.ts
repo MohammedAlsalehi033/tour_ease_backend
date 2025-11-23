@@ -179,6 +179,9 @@ export default class AccommodationModel {
             },
           },
           reviews: {
+            where: {
+              accommodationId: id, // Only reviews for this accommodation
+            },
             include: {
               reviewer: {
                 select: {

@@ -122,6 +122,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/accommodation-bookings', accommodationBookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api', uploadRoutes); // Upload endpoint for S3
+app.use('/api/diagnostic', require('./routes/diagnostic/diagnosticRoutes')); // Diagnostic endpoints
 
 app.use('/api', createChatRouter(io, connectedUsers)); 
 
