@@ -150,6 +150,23 @@ router.delete(
   )
 );
 
+// Manually trigger automatic status update for expired bookings (Admin/Debug)
+router.post(
+  "/update-expired-bookings",
+  accommodationBookingController.updateExpiredBookings.bind(
+    accommodationBookingController
+  )
+);
+
+// Get payment summary for provider - MUST be BEFORE /provider/:providerId
+router.get(
+  "/provider/:providerId/payments",
+  authMiddleware,
+  accommodationBookingController.getPaymentSummary.bind(
+    accommodationBookingController
+  )
+);
+
 // Get bookings by provider - must be before generic /:id routes
 router.get(
   "/provider/:providerId",

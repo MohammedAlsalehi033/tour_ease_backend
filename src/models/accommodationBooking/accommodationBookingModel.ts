@@ -547,4 +547,30 @@ export default class AccommodationBookingModel {
       throw error;
     }
   }
+
+  /**
+   * Update multiple bookings status at once
+   * Used by automatic status updater
+   */
+  async updateMultipleBookingsStatus(
+    bookingIds: number[],
+    status: string
+  ): Promise<number> {
+    try {
+      const result = await prisma.accommodationBooking.updateMany({
+        where: {
+          id: {
+            in: bookingIds,
+          },
+        },
+        data: {
+          status,
+        },
+      });
+      return result.count;
+    } catch (error) {
+      console.error("Error updating multiple bookings status:", error);
+      throw error;
+    }
+  }
 }

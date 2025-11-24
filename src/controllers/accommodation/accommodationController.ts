@@ -129,6 +129,27 @@ export default class AccommodationController {
 
       const accommodation = await this.model.updateAccommodation(parseInt(id), data);
 
+      // Update accommodationProvider table to maintain consistency
+      const prisma = require('@prisma/client').PrismaClient;
+      const prismaClient = new prisma();
+      try {
+        const providerUpdateData: any = {};
+        if (name) providerUpdateData.accommodationName = name;
+        if (location) providerUpdateData.address = location;
+        
+        if (Object.keys(providerUpdateData).length > 0) {
+          await prismaClient.accommodationProvider.updateMany({
+            where: { providerId: accommodation.providerId },
+            data: providerUpdateData,
+          });
+          console.log('✅ Updated accommodationProvider:', Object.keys(providerUpdateData).join(', '));
+        }
+      } catch (error) {
+        console.error('⚠️ Error updating provider:', error);
+      } finally {
+        await prismaClient.$disconnect();
+      }
+
       res.json({
         success: true,
         data: accommodation,
@@ -139,6 +160,93 @@ export default class AccommodationController {
       res.status(500).json({
         success: false,
         message: error.message || "Failed to update accommodation",
+      });
+    }
+  }
+
+  /**
+   * Update accommodation image
+   */
+  async updateAccommodationImage(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: "No image file provided",
+        });
+      }
+
+      console.log('📸 Updating accommodation image:', { id, file: file.path });
+
+      // Get current accommodation
+      const accommodation = await this.model.getAccommodationById(parseInt(id));
+      if (!accommodation) {
+        return res.status(404).json({
+          success: false,
+          message: "Accommodation not found",
+        });
+      }
+
+      // Upload to S3 using the same method as profile picture
+      const fileUploader = new (require('../../utils/FileUploader').FileUploaderForS3)();
+      
+      // Delete old accommodation image from S3 if it exists
+      if (accommodation.mediaUrls && accommodation.mediaUrls.length > 0) {
+        try {
+          await fileUploader.deleteFile(accommodation.mediaUrls[0]);
+        } catch (deleteError) {
+          console.warn('Failed to delete old accommodation image:', deleteError);
+        }
+      }
+      
+      // Upload new image
+      const uploadResult = await fileUploader.uploadFile(file, "accommodation-profile", accommodation.providerId);
+      const updatedMediaUrls = [uploadResult.key];
+
+      // Update accommodation with new mediaUrls
+      const updatedAccommodation = await this.model.updateAccommodation(parseInt(id), {
+        mediaUrls: updatedMediaUrls,
+      });
+
+      // Also update accommodationProvider.mediaUrls
+      const prisma = require('@prisma/client').PrismaClient;
+      const prismaClient = new prisma();
+      try {
+        await prismaClient.accommodationProvider.updateMany({
+          where: { providerId: accommodation.providerId },
+          data: { mediaUrls: updatedMediaUrls },
+        });
+        console.log('✅ Updated accommodationProvider.mediaUrls');
+      } catch (error) {
+        console.error('⚠️ Error updating provider mediaUrls:', error);
+      } finally {
+        await prismaClient.$disconnect();
+      }
+
+      // Generate signed URLs for all images
+      const signedUrls = await Promise.all(
+        updatedMediaUrls.map((url: string) => fileUploader.myGetSignedUrl(url))
+      );
+
+      const responseData = {
+        ...updatedAccommodation,
+        mediaUrls: signedUrls,
+      };
+
+      console.log('✅ Accommodation image updated successfully');
+      res.json({
+        success: true,
+        data: responseData,
+        message: "Accommodation image updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in updateAccommodationImage:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to update accommodation image",
       });
     }
   }

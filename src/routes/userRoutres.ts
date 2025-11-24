@@ -55,6 +55,12 @@ router.put(
     (req, res) => transportationProviderController.updateTransportationProvider(req, res)
 );
 
+// Update username
+router.patch('/username/:id', userController.updateUsername.bind(userController));
+
+// Update phone number
+router.patch('/users/:id/phone', userController.updatePhoneNumber.bind(userController));
+
 // router.get('/questions/:id', questionController.getQuestionById);
 // router.get('/questions/search', questionController.searchQuestions);
 

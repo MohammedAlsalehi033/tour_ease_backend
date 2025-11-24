@@ -226,4 +226,91 @@ export default class UserController {
             });
         }
     }
+
+    async updateUsername(req, res) {
+        try {
+            const userId = req.params.id;
+            const { username } = req.body;
+
+            if (!username || username.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Username is required',
+                });
+            }
+
+            const updatedUser = await this.model.updateUsername(userId, username.trim());
+
+            // Generate signed URLs for profile pictures if they exist
+            if (updatedUser.mediaUrls && updatedUser.mediaUrls.length > 0) {
+                const signedUrls = await Promise.all(
+                    updatedUser.mediaUrls.map(url => this.fileUploader.myGetSignedUrl(url))
+                );
+                updatedUser.mediaUrls = signedUrls;
+            }
+
+            res.json({
+                success: true,
+                message: 'Username updated successfully',
+                data: updatedUser,
+            });
+        } catch (error : any) {
+            console.error('Error updating username:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to update username',
+            });
+        }
+    }
+
+    async updatePhoneNumber(req, res) {
+        try {
+            const userId = req.params.id;
+            const { phoneNumber } = req.body;
+
+            if (!phoneNumber || phoneNumber.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Phone number is required',
+                });
+            }
+
+            const updatedUser = await this.model.updatePhoneNumber(userId, phoneNumber.trim());
+
+            // Generate signed URLs for profile pictures if they exist
+            if (updatedUser.mediaUrls && updatedUser.mediaUrls.length > 0) {
+                const signedUrls = await Promise.all(
+                    updatedUser.mediaUrls.map(url => this.fileUploader.myGetSignedUrl(url))
+                );
+                updatedUser.mediaUrls = signedUrls;
+            }
+
+            // Also update accommodationProvider.contactNumber if user is an accommodation provider
+            const prisma = require('@prisma/client').PrismaClient;
+            const prismaClient = new prisma();
+            try {
+                await prismaClient.accommodationProvider.updateMany({
+                    where: { providerId: userId },
+                    data: { contactNumber: phoneNumber.trim() },
+                });
+                console.log('✅ Updated accommodationProvider.contactNumber');
+            } catch (error) {
+                console.error('⚠️ Error updating provider contactNumber:', error);
+            } finally {
+                await prismaClient.$disconnect();
+            }
+
+            res.json({
+                success: true,
+                message: 'Phone number updated successfully',
+                data: { phoneNumber: updatedUser.phoneNumber },
+            });
+        } catch (error : any) {
+            console.error('Error updating phone number:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to update phone number',
+            });
+        }
+    }
 }
