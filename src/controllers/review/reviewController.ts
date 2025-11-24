@@ -657,4 +657,176 @@ export class ReviewController {
       return false;
     }
   }
+
+  // Get reviews for a specific accommodation booking
+  async getReviewsForBooking(req: Request, res: Response) {
+    try {
+      const { bookingId } = req.params;
+
+      // Get booking with accommodation info and check status
+      const booking = await prisma.accommodationBooking.findUnique({
+        where: { id: parseInt(bookingId) },
+        include: {
+          room: {
+            select: {
+              accommodationId: true,
+            },
+          },
+        },
+      });
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: 'Booking not found',
+        });
+      }
+
+      if (booking.status.toLowerCase() !== 'complete') {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'Reviews are only available for completed bookings',
+        });
+      }
+
+      const accommodationId = booking.room?.accommodationId;
+
+      console.log(`=== Fetching reviews for booking ${bookingId} ===`);
+      console.log(`Traveler ID: ${booking.travelerId}`);
+      console.log(`Accommodation ID: ${accommodationId}`);
+
+      // Find reviews by:
+      // 1. Direct match: accommodationBookingId equals this bookingId
+      // 2. Indirect match: reviews for this accommodation by this traveler
+      const reviews = await prisma.review.findMany({
+        where: {
+          OR: [
+            // Direct: review has this booking ID
+            { accommodationBookingId: parseInt(bookingId) },
+            // Indirect: review for this accommodation by this traveler
+            ...(accommodationId ? [{
+              accommodationId: accommodationId,
+              reviewerId: booking.travelerId,
+            }] : []),
+          ],
+        },
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              username: true,
+              mediaUrls: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      console.log(`Found ${reviews.length} review(s)`);
+      reviews.forEach(r => {
+        console.log(`  - Review ID ${r.id}: type=${r.reviewableType}, accommodationBookingId=${r.accommodationBookingId}, accommodationId=${r.accommodationId}`);
+      });
+
+      // Prefer ACCOMMODATION_BOOKING type, then take first review
+      const bookingTypeReviews = reviews.filter(r => r.reviewableType === 'ACCOMMODATION_BOOKING');
+      const finalReviews = bookingTypeReviews.length > 0 ? bookingTypeReviews.slice(0, 1) : reviews.slice(0, 1);
+      
+      console.log(`Returning ${finalReviews.length} review(s)`);
+
+      res.status(200).json({
+        success: true,
+        data: finalReviews,
+        count: finalReviews.length,
+      });
+    } catch (error) {
+      console.error('Error fetching reviews for booking:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // Get reviews for a specific accommodation with average rating
+  async getReviewsForAccommodation(req: Request, res: Response) {
+    try {
+      const { accommodationId } = req.params;
+
+      console.log(`=== Fetching reviews for accommodation ${accommodationId} ===`);
+
+      // First, get all booking IDs for this accommodation (join through room)
+      const bookings = await prisma.accommodationBooking.findMany({
+        where: {
+          room: {
+            accommodationId: parseInt(accommodationId),
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const bookingIds = bookings.map(b => b.id);
+      console.log(`Found ${bookingIds.length} bookings for accommodation ${accommodationId}`);
+
+      // Find all ACCOMMODATION_BOOKING type reviews for these bookings
+      const reviews = await prisma.review.findMany({
+        where: {
+          reviewableType: 'ACCOMMODATION_BOOKING',
+          accommodationBookingId: {
+            in: bookingIds,
+          },
+        },
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              username: true,
+              mediaUrls: true,
+            },
+          },
+          accommodationBooking: {
+            select: {
+              id: true,
+              checkInDate: true,
+              checkOutDate: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Calculate average rating
+      const totalReviews = reviews.length;
+      const averageRating = totalReviews > 0
+        ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
+        : 0;
+
+      console.log(`Found ${totalReviews} ACCOMMODATION_BOOKING reviews, average rating: ${averageRating.toFixed(1)}`);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          reviews,
+          averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+          totalReviews,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching reviews for accommodation:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 }
