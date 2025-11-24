@@ -35,6 +35,7 @@ const { createChatRouter } = require("./routes/chat/chatRouter");
 
 import { PrismaClient } from '@prisma/client';
 import authMiddleware from "./middleware/authMiddleware";
+import { bookingStatusUpdater } from './services/bookingStatusUpdater';
 require('dotenv').config();
 const { initializeApp } = require('firebase-admin/app');
 var admin = require("firebase-admin");
@@ -99,6 +100,12 @@ app.use(cors());
 // Increase JSON/body parser limits to allow larger registration payloads (images should still be uploaded to S3)
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.path} - Query:`, JSON.stringify(req.query));
+  next();
+});
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -170,4 +177,9 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.IO server is running`);
   console.log(`Test the socket connection at http://localhost:${PORT}/test-socket`);
+  
+  // Start automatic booking status updater
+  // Checks every 60 minutes by default
+  bookingStatusUpdater.start(60);
+  console.log(`Booking status updater started - will check every 60 minutes`);
 });

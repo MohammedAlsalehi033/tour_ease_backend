@@ -252,46 +252,6 @@ export default class AccommodationBookingController {
   }
 
   /**
-   * Get bookings by provider
-   */
-  async getBookingsByProvider(req: any, res: any) {
-    try {
-      const { providerId } = req.params;
-      const page = parseInt(req.query.page) || 1;
-      const pageSize = parseInt(req.query.pageSize) || 10;
-
-      const filter: any = {};
-      if (req.query.status) filter.status = req.query.status;
-      if (req.query.startDate) filter.startDate = new Date(req.query.startDate);
-      if (req.query.endDate) filter.endDate = new Date(req.query.endDate);
-
-      const result = await this.model.getBookingsByProvider(
-        providerId,
-        page,
-        pageSize,
-        Object.keys(filter).length > 0 ? filter : undefined
-      );
-
-      res.json({
-        success: true,
-        data: result.bookings,
-        pagination: {
-          total: result.total,
-          page: result.page,
-          pageSize: result.pageSize,
-          totalPages: result.totalPages,
-        },
-      });
-    } catch (error: any) {
-      console.error("Error in getBookingsByProvider:", error);
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to get bookings",
-      });
-    }
-  }
-
-  /**
    * Confirm booking after payment
    * Provider confirms the booking once payment is received
    */
@@ -839,6 +799,157 @@ export default class AccommodationBookingController {
       res.status(500).json({
         success: false,
         message: error.message || "Failed to submit review",
+      });
+    }
+  }
+
+  /**
+   * Get bookings by provider
+   */
+  async getBookingsByProvider(req: Request, res: Response) {
+    try {
+      const { providerId } = req.params;
+      const { status, page = 1, pageSize = 50 } = req.query;
+
+      console.log(`=== Fetching bookings for provider ${providerId} ===`);
+      console.log(`Status filter: ${status}, Page: ${page}, PageSize: ${pageSize}`);
+
+      const filter: any = {};
+      if (status) filter.status = status as string;
+
+      const result = await this.model.getBookingsByProvider(
+        providerId,
+        parseInt(page as string),
+        parseInt(pageSize as string),
+        Object.keys(filter).length > 0 ? filter : undefined
+      );
+
+      console.log(`Found ${result.total} bookings`);
+
+      res.json({
+        success: true,
+        data: result.bookings,
+        pagination: {
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in getBookingsByProvider:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch bookings',
+      });
+    }
+  }
+
+  /**
+   * Manually trigger automatic status update for expired bookings
+   * Admin/debug endpoint
+   */
+  async updateExpiredBookings(req: any, res: any) {
+    try {
+      console.log('[Manual Update] Triggering booking status update...');
+      
+      // Import the service
+      const { bookingStatusUpdater } = require('../../services/bookingStatusUpdater');
+      
+      // Run the update
+      await bookingStatusUpdater.updateExpiredBookings();
+      
+      res.json({
+        success: true,
+        message: 'Booking status update completed successfully',
+      });
+    } catch (error: any) {
+      console.error('Error in updateExpiredBookings:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to update expired bookings',
+      });
+    }
+  }
+
+  /**
+   * Get payment summary and transactions for provider
+   */
+  async getPaymentSummary(req: Request, res: Response) {
+    console.log('>>> PAYMENT SUMMARY ENDPOINT HIT <<<');
+    console.log('Request params:', req.params);
+    console.log('Request query:', req.query);
+    
+    try {
+      const { providerId } = req.params;
+      const { status, startDate, endDate } = req.query;
+
+      console.log(`=== Fetching payment summary for provider ${providerId} ===`);
+      console.log(`Filters: status=${status}, startDate=${startDate}, endDate=${endDate}`);
+
+      // Build filter object
+      const filter: any = {};
+      if (status) filter.status = status as string;
+      if (startDate && endDate) {
+        filter.startDate = new Date(startDate as string);
+        filter.endDate = new Date(endDate as string);
+      }
+
+      // Get all bookings for this provider's accommodation
+      const result = await this.model.getBookingsByProvider(
+        providerId,
+        1,
+        1000, // Get all bookings
+        Object.keys(filter).length > 0 ? filter : undefined
+      );
+
+      const bookings = result.bookings;
+      console.log(`Found ${bookings.length} bookings`);
+
+      // Calculate total earnings (complete + checked out)
+      const completedStatuses = ['complete', 'checked out'];
+      const totalEarnings = bookings
+        .filter(b => completedStatuses.includes(b.status.toLowerCase()))
+        .reduce((sum, b) => sum + parseFloat(b.totalPrice.toString()), 0);
+
+      // Calculate pending (confirmed)
+      const pendingAmount = bookings
+        .filter(b => b.status.toLowerCase() === 'confirmed')
+        .reduce((sum, b) => sum + parseFloat(b.totalPrice.toString()), 0);
+
+      // Calculate this month earnings
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const thisMonthEarnings = bookings
+        .filter(b => {
+          const checkOutDate = new Date(b.checkOutDate);
+          return completedStatuses.includes(b.status.toLowerCase()) &&
+                 checkOutDate >= firstDayOfMonth &&
+                 checkOutDate <= lastDayOfMonth;
+        })
+        .reduce((sum, b) => sum + parseFloat(b.totalPrice.toString()), 0);
+
+      console.log(`Total: ${totalEarnings}, Pending: ${pendingAmount}, This Month: ${thisMonthEarnings}`);
+
+      res.json({
+        success: true,
+        data: {
+          summary: {
+            totalEarnings: Math.round(totalEarnings * 100) / 100,
+            pendingAmount: Math.round(pendingAmount * 100) / 100,
+            thisMonthEarnings: Math.round(thisMonthEarnings * 100) / 100,
+          },
+          bookings: bookings,
+          totalBookings: bookings.length,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in getPaymentSummary:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch payment summary',
       });
     }
   }
