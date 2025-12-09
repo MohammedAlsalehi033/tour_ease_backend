@@ -144,6 +144,43 @@ export default class RoomController {
   }
 
   /**
+   * Update room images
+   */
+  async updateRoomImages(req: any, res: any) {
+    try {
+      const { id } = req.params;
+      const { mediaUrls } = req.body;
+
+      if (!mediaUrls || !Array.isArray(mediaUrls)) {
+        return res.status(400).json({
+          success: false,
+          message: "mediaUrls array is required",
+        });
+      }
+
+      console.log('📸 Updating room images:', { id, imageCount: mediaUrls.length });
+
+      // Update room with new mediaUrls
+      const room = await this.model.updateRoom(parseInt(id), {
+        mediaUrls: mediaUrls,
+      });
+
+      console.log('✅ Room images updated successfully');
+      res.json({
+        success: true,
+        data: room,
+        message: "Room images updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Error in updateRoomImages:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to update room images",
+      });
+    }
+  }
+
+  /**
    * Delete room
    */
   async deleteRoom(req: any, res: any) {
@@ -227,6 +264,52 @@ export default class RoomController {
   }
 
   /**
+   * Search available rooms with filters
+   * Supports: checkInDate, checkOutDate, location, minPrice, maxPrice, capacity
+   */
+  async searchAvailableRooms(req: any, res: any) {
+    try {
+      const { checkInDate, checkOutDate, location, minPrice, maxPrice, capacity } = req.query;
+
+      console.log('🔍 Search available rooms request:', { checkInDate, checkOutDate, location, minPrice, maxPrice, capacity });
+
+      if (!checkInDate || !checkOutDate) {
+        return res.status(400).json({
+          success: false,
+          message: "checkInDate and checkOutDate are required",
+        });
+      }
+
+      const filter: any = {
+        checkInDate: new Date(checkInDate),
+        checkOutDate: new Date(checkOutDate),
+      };
+      if (location) filter.location = location;
+      if (minPrice) filter.minPrice = parseFloat(minPrice);
+      if (maxPrice) filter.maxPrice = parseFloat(maxPrice);
+      if (capacity) filter.capacity = parseInt(capacity);
+
+      console.log('🔍 Filter being used:', filter);
+
+      const availableRooms = await this.model.searchAvailableRooms(filter);
+
+      console.log(`✅ Found ${availableRooms.length} available rooms`);
+
+      res.json({
+        success: true,
+        data: availableRooms,
+        count: availableRooms.length,
+      });
+    } catch (error: any) {
+      console.error("❌ Error in searchAvailableRooms:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to search available rooms",
+      });
+    }
+  }
+
+  /**
    * Debug endpoint to see booking data
    */
   async debugBookings(req: any, res: any) {
@@ -243,6 +326,28 @@ export default class RoomController {
       res.status(500).json({
         success: false,
         message: error.message || "Failed to debug bookings",
+      });
+    }
+  }
+
+  /**
+   * Get rooms with occupancy status by provider ID
+   */
+  async getRoomsWithOccupancy(req: any, res: any) {
+    try {
+      const { providerId } = req.params;
+
+      const result = await this.model.getRoomsWithOccupancyByProvider(providerId);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error in getRoomsWithOccupancy:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to get rooms with occupancy",
       });
     }
   }

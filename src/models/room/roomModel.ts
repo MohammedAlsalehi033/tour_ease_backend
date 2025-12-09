@@ -315,51 +315,6 @@ export default class RoomModel {
   }
 
   /**
-   * Check room availability
-   */
-  async checkRoomAvailability(
-    roomId: number,
-    checkInDate: Date,
-    checkOutDate: Date
-  ): Promise<boolean> {
-    try {
-      const conflictingBookings = await prisma.accommodationBooking.findMany({
-        where: {
-          roomId,
-          status: {
-            in: ["pending", "confirmed"],
-          },
-          OR: [
-            {
-              AND: [
-                { checkInDate: { lte: checkInDate } },
-                { checkOutDate: { gt: checkInDate } },
-              ],
-            },
-            {
-              AND: [
-                { checkInDate: { lt: checkOutDate } },
-                { checkOutDate: { gte: checkOutDate } },
-              ],
-            },
-            {
-              AND: [
-                { checkInDate: { gte: checkInDate } },
-                { checkOutDate: { lte: checkOutDate } },
-              ],
-            },
-          ],
-        },
-      });
-
-      return conflictingBookings.length === 0;
-    } catch (error) {
-      console.error("Error checking room availability:", error);
-      throw error;
-    }
-  }
-
-  /**
    * Debug booking data for accommodation
    */
   async debugBookingData(accommodationId: number): Promise<any> {
@@ -416,6 +371,293 @@ export default class RoomModel {
       };
     } catch (error) {
       console.error("Error debugging booking data:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a room is available for given dates
+   * Returns true if room has no conflicting bookings
+   */
+  async checkRoomAvailability(
+    roomId: number,
+    checkInDate: Date,
+    checkOutDate: Date
+  ): Promise<boolean> {
+    try {
+      // Find any overlapping bookings for this room
+      const conflictingBookings = await prisma.accommodationBooking.findMany({
+        where: {
+          roomId,
+          status: {
+            in: ["confirmed", "pending"], // Only check active bookings
+          },
+          OR: [
+            // Booking starts during our stay
+            {
+              checkInDate: {
+                gte: checkInDate,
+                lt: checkOutDate,
+              },
+            },
+            // Booking ends during our stay
+            {
+              checkOutDate: {
+                gt: checkInDate,
+                lte: checkOutDate,
+              },
+            },
+            // Booking completely encompasses our stay
+            {
+              checkInDate: {
+                lte: checkInDate,
+              },
+              checkOutDate: {
+                gte: checkOutDate,
+              },
+            },
+          ],
+        },
+      });
+
+      return conflictingBookings.length === 0;
+    } catch (error) {
+      console.error("Error checking room availability:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get rooms with occupancy status by provider ID
+   * Returns all rooms with their current booking status
+   */
+  async getRoomsWithOccupancyByProvider(providerId: string): Promise<any> {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get all accommodations for this provider
+      const accommodations = await prisma.accommodation.findMany({
+        where: { providerId },
+        select: { id: true },
+      });
+
+      const accommodationIds = accommodations.map(a => a.id);
+
+      if (accommodationIds.length === 0) {
+        return {
+          totalRooms: 0,
+          occupiedRooms: 0,
+          availableRooms: 0,
+          rooms: [],
+        };
+      }
+
+      // Get all rooms for these accommodations
+      const rooms = await prisma.room.findMany({
+        where: {
+          accommodationId: { in: accommodationIds },
+        },
+        include: {
+          accommodation: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+            },
+          },
+        },
+        orderBy: [
+          { accommodationId: 'asc' },
+          { id: 'asc' },
+        ],
+      });
+
+      // Get current bookings (where today is between check-in and check-out)
+      const currentBookings = await prisma.accommodationBooking.findMany({
+        where: {
+          roomId: { in: rooms.map(r => r.id) },
+          checkInDate: { lte: today },
+          checkOutDate: { gte: today },
+          status: { in: ['confirmed', 'checked in'] },
+        },
+        include: {
+          traveler: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Create a map of room ID to current booking
+      const bookingMap = new Map();
+      currentBookings.forEach(booking => {
+        bookingMap.set(booking.roomId, booking);
+      });
+
+      // Build room data with occupancy status
+      const roomsWithOccupancy = rooms.map((room, index) => {
+        const currentBooking = bookingMap.get(room.id);
+        const isOccupied = !!currentBooking;
+
+        return {
+          ...room,
+          roomNumber: `${room.id}`, // Use room ID as room number
+          isOccupied,
+          currentBooking: currentBooking ? {
+            id: currentBooking.id,
+            guestName: currentBooking.traveler?.username || 'Guest',
+            guestEmail: currentBooking.traveler?.email,
+            checkInDate: currentBooking.checkInDate,
+            checkOutDate: currentBooking.checkOutDate,
+            status: currentBooking.status,
+            totalPrice: currentBooking.totalPrice,
+          } : null,
+        };
+      });
+
+      const occupiedCount = roomsWithOccupancy.filter(r => r.isOccupied).length;
+      const availableCount = roomsWithOccupancy.length - occupiedCount;
+
+      return {
+        totalRooms: roomsWithOccupancy.length,
+        occupiedRooms: occupiedCount,
+        availableRooms: availableCount,
+        rooms: roomsWithOccupancy,
+      };
+    } catch (error) {
+      console.error("Error getting rooms with occupancy:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search for available rooms based on dates, capacity, location, and price
+   * Returns only rooms that have NO booking conflicts for the specified dates
+   */
+  async searchAvailableRooms(filter: {
+    checkInDate: Date;
+    checkOutDate: Date;
+    location?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    capacity?: number;
+  }): Promise<any[]> {
+    try {
+      const { checkInDate, checkOutDate, location, minPrice, maxPrice, capacity } = filter;
+
+      // Build accommodation filter for location
+      const accommodationWhere: any = {};
+      if (location) {
+        accommodationWhere.location = { contains: location, mode: "insensitive" as const };
+      }
+
+      // Build room filter
+      const roomWhere: any = {};
+      if (capacity) {
+        roomWhere.capacity = capacity;
+      }
+      if (minPrice || maxPrice) {
+        roomWhere.pricePerNight = {};
+        if (minPrice) {
+          roomWhere.pricePerNight.gte = new Decimal(minPrice);
+        }
+        if (maxPrice) {
+          roomWhere.pricePerNight.lte = new Decimal(maxPrice);
+        }
+      }
+
+      // Get all rooms that match the basic filters
+      const potentialRooms = await prisma.room.findMany({
+        where: {
+          ...roomWhere,
+          ...(Object.keys(accommodationWhere).length > 0 && { accommodation: accommodationWhere }),
+        },
+        include: {
+          accommodation: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+              description: true,
+              mediaUrls: true,
+              provider: {
+                select: {
+                  accommodationName: true,
+                },
+              },
+            },
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+      });
+
+      // Filter out rooms that have conflicting bookings
+      const availableRooms: any[] = [];
+      
+      for (const room of potentialRooms) {
+        // Check for overlapping bookings
+        const conflictingBookings = await prisma.accommodationBooking.count({
+          where: {
+            roomId: room.id,
+            status: {
+              in: ["pending", "confirmed"],
+            },
+            OR: [
+              // Booking starts during our stay
+              {
+                checkInDate: {
+                  gte: checkInDate,
+                  lt: checkOutDate,
+                },
+              },
+              // Booking ends during our stay
+              {
+                checkOutDate: {
+                  gt: checkInDate,
+                  lte: checkOutDate,
+                },
+              },
+              // Booking completely encompasses our stay
+              {
+                checkInDate: {
+                  lte: checkInDate,
+                },
+                checkOutDate: {
+                  gte: checkOutDate,
+                },
+              },
+            ],
+          },
+        });
+
+        // If no conflicts, room is available
+        if (conflictingBookings === 0) {
+          // Calculate average rating
+          const avgRating =
+            room.reviews.length > 0
+              ? room.reviews.reduce((sum, r) => sum + r.rating, 0) / room.reviews.length
+              : 0;
+
+          availableRooms.push({
+            ...room,
+            averageRating: avgRating,
+            reviewCount: room.reviews.length,
+            pricePerNight: parseFloat(room.pricePerNight.toString()),
+          });
+        }
+      }
+
+      return availableRooms;
+    } catch (error) {
+      console.error("Error searching available rooms:", error);
       throw error;
     }
   }

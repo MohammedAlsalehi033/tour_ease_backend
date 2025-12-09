@@ -418,4 +418,106 @@ async getAllUsers(
       throw error;
     }
   }
+
+  /**
+   * Update username for a user
+   * @param userId - The user ID
+   * @param newUsername - The new username
+   * @returns Updated user object
+   */
+  async updateUsername(userId: string, newUsername: string): Promise<{
+    id: string;
+    username: string;
+    email: string;
+    mediaUrls: string[];
+    accountStatus: string;
+    createdAt: Date;
+    updatedAt: Date;
+    roles: string[];
+  }> {
+    try {
+      // Check if username already exists (excluding current user)
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          username: newUsername,
+          NOT: {
+            id: userId,
+          },
+        },
+      });
+
+      if (existingUser) {
+        throw new Error('Username already taken');
+      }
+
+      // Update the username
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { username: newUsername },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      return {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        mediaUrls: updatedUser.mediaUrls,
+        accountStatus: updatedUser.accountStatus,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+        roles: updatedUser.roles.map((userRole: any) => userRole.role.roleName),
+      };
+    } catch (error) {
+      console.error('Error updating username:', error);
+      throw error;
+    }
+  }
+
+  async updatePhoneNumber(userId: string, newPhoneNumber: string): Promise<{
+    id: string;
+    username: string;
+    email: string;
+    phoneNumber: string | null;
+    mediaUrls: string[];
+    accountStatus: string;
+    createdAt: Date;
+    updatedAt: Date;
+    roles: string[];
+  }> {
+    try {
+      // Update the phone number
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { phoneNumber: newPhoneNumber },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      return {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        phoneNumber: updatedUser.phoneNumber,
+        mediaUrls: updatedUser.mediaUrls,
+        accountStatus: updatedUser.accountStatus,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+        roles: updatedUser.roles.map((userRole: any) => userRole.role.roleName),
+      };
+    } catch (error) {
+      console.error('Error updating phone number:', error);
+      throw error;
+    }
+  }
 }

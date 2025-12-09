@@ -56,6 +56,20 @@ router.get(
   reviewController.getMyReviews.bind(reviewController)
 );
 
+// Get reviews for a specific booking
+router.get(
+  '/booking/:bookingId',
+  authMiddleware(),
+  reviewController.getReviewsForBooking.bind(reviewController)
+);
+
+// Get reviews for a specific accommodation
+router.get(
+  '/accommodation/:accommodationId',
+  authMiddleware(),
+  reviewController.getReviewsForAccommodation.bind(reviewController)
+);
+
 // Get a specific review by ID
 router.get(
   '/:id',
