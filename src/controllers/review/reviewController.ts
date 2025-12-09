@@ -301,6 +301,61 @@ export class ReviewController {
         });
       }
 
+      // Special handling for accommodation provider stats
+      if (reviewableType === 'ACCOMMODATION_PROVIDER') {
+        const accommodations = await prisma.accommodation.findMany({
+          where: {
+            providerId: reviewableId
+          },
+          include: {
+            reviews: {
+              include: {
+                reviewer: {
+                  select: {
+                    id: true,
+                    username: true,
+                    mediaUrls: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        const allReviews = accommodations.flatMap(acc => acc.reviews);
+        
+        const reviews = allReviews.slice(
+          (parseInt(page as string) - 1) * parseInt(limit as string), 
+          parseInt(page as string) * parseInt(limit as string)
+        );
+
+        const totalReviews = allReviews.length;
+        const sumRatings = allReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalReviews > 0 ? sumRatings / totalReviews : 0;
+
+        const ratingDistribution = allReviews.reduce((acc, review) => {
+          acc[review.rating] = (acc[review.rating] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            reviews,
+            stats: {
+              totalReviews,
+              averageRating,
+              ratingDistribution
+            }
+          },
+          pagination: {
+            page: parseInt(page as string),
+            limit: parseInt(limit as string),
+            total: totalReviews,
+          },
+        });
+      }
+
       const reviews = await reviewModel.getReviewsByReviewableType(
         reviewableType,
         parseInt(reviewableId),

@@ -346,6 +346,55 @@ export class PlannerModel {
       }
     });
 
+    // Fetch provider reviews for all accommodation providers
+    const providerIds = [...new Set(accommodations.map(a => a.providerId))];
+    const providerReviewsMap = new Map<string, any>();
+
+    for (const providerId of providerIds) {
+      try {
+        const providerAccommodations = await prisma.accommodation.findMany({
+          where: {
+            providerId: providerId
+          },
+          include: {
+            reviews: {
+              include: {
+                reviewer: {
+                  select: {
+                    id: true,
+                    username: true,
+                    mediaUrls: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        const allReviews = providerAccommodations.flatMap(acc => acc.reviews);
+        
+        const totalReviews = allReviews.length;
+        const sumRatings = allReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = totalReviews > 0 ? sumRatings / totalReviews : 0;
+
+        const ratingDistribution = allReviews.reduce((acc, review) => {
+          acc[review.rating] = (acc[review.rating] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+
+        providerReviewsMap.set(String(providerId), {
+          reviews: allReviews.slice(0, 5), // Get top 5 most recent reviews
+          stats: {
+            totalReviews,
+            averageRating,
+            ratingDistribution
+          }
+        });
+      } catch (error) {
+        console.error(`Error fetching reviews for accommodation provider ${providerId}:`, error);
+      }
+    }
+
     const accommodationOptions: AccommodationOption[] = [];
 
     for (const accommodation of accommodations) {
@@ -394,7 +443,8 @@ export class PlannerModel {
           totalGuests: numberOfTravelers,
           checkInDate,
           checkOutDate,
-          numberOfNights
+          numberOfNights,
+          providerReviews: providerReviewsMap.get(accommodation.providerId)
         });
       } else {
         // Return ONE accommodation option with ALL valid room types
@@ -418,7 +468,8 @@ export class PlannerModel {
           totalGuests: numberOfTravelers,
           checkInDate,
           checkOutDate,
-          numberOfNights
+          numberOfNights,
+          providerReviews: providerReviewsMap.get(accommodation.providerId)
         });
       }
     }

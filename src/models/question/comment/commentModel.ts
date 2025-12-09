@@ -49,14 +49,29 @@ export class PrisnaCommentModel {
       },
     });
   }
-  getItemById(id: number | string): Promise<{
+  async getItemById(id: number | string): Promise<{
     id: number;
     userId: string;
     questionId: number;
     content: string;
     createdAt: Date;
   } | null> {
-    throw new Error("Method not implemented.");
+    let commentId: number;
+
+    if (typeof id === 'string') {
+      commentId = parseInt(id, 10);
+      if (isNaN(commentId)) {
+        throw new Error('Invalid ID format. ID must be a number or a numeric string.');
+      }
+    } else {
+      commentId = id;
+    }
+
+    return prisma.comment.findUnique({
+      where: {
+        id: commentId,
+      },
+    });
   }
 
   createItem(

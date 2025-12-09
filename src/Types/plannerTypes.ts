@@ -46,6 +46,14 @@ export interface AccommodationOption {
   checkInDate: Date;
   checkOutDate: Date;
   numberOfNights: number;
+  providerReviews?: {
+    reviews: any[];
+    stats: {
+      totalReviews: number;
+      averageRating: number;
+      ratingDistribution: Record<number, number>;
+    };
+  };
 }
 
 export interface ActivityOption {
