@@ -7,3 +7,9 @@ dist/
 .vscode/
 uploads/
 uploads/
+
+# Secrets - never commit
+awsKey.pem
+*.pem
+serviceAccountKey.json
+firebasecrd.json

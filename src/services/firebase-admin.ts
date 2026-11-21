@@ -1,7 +1,7 @@
 // Import the entire SDK as an 'admin' object
 import * as admin from 'firebase-admin';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const serviceAccount = require("./firebasecrd.json");
+const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "../../serviceAccountKey.json");
 
 // Initialize the app using the admin object
 admin.initializeApp({
